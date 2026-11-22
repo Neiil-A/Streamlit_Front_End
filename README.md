@@ -5,6 +5,7 @@ Top Stories, Wikipedia, BBC, NPR, ESPN, Quanta, Aeon, The Conversation, Page Six
 like a newspaper. Headlines and summaries belong to their publishers and link to the originals.
 Not a product or service.
 
-Streamlit Community Cloud: main file `streamlit_app.py` (or `press/app.py`). Secrets: `APP_PASSWORD`, `GUARDIAN_API_KEY`, `NYT_API_KEY`.
+Streamlit Community Cloud: main file `streamlit_app.py` (or `press/app.py`). Works with no settings; the password is
+built in as a one-way hash. Optional Secrets: `GUARDIAN_API_KEY`, `NYT_API_KEY` (more sources), `APP_PASSWORD` (a new password).
 
 This repository is generated from the main project; edit there, not here.

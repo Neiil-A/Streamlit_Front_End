@@ -2,8 +2,8 @@
 """Stop Looking at my Computer News: the day's news as a newspaper front page.
 
 Run locally:   .venv/bin/streamlit run press/app.py
-Hosted:        Streamlit Community Cloud, main file press/app.py, in the app's Secrets:
-               APP_PASSWORD (the lock), GUARDIAN_API_KEY, and NYT_API_KEY once you have it.
+Hosted:        Streamlit Community Cloud, main file streamlit_app.py (or press/app.py). Works with no
+               settings at all; optional Secrets: GUARDIAN_API_KEY, NYT_API_KEY, APP_PASSWORD.
 """
 
 from __future__ import annotations
@@ -20,6 +20,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))   # so `press` impo
 
 from press.edition import Edition, build, is_live  # noqa: E402
 from press.feeds import SECTIONS, Story  # noqa: E402
+from press.lock import matches  # noqa: E402
 
 ET = ZoneInfo("America/New_York")
 REFRESH_S = 45 * 60
@@ -160,8 +161,8 @@ def page(e: Edition) -> str:
 
 
 def password_ok() -> bool:
-    """A simple lock: the password lives in the app's Secrets (APP_PASSWORD), never in the code. With no
-    password set anywhere the page stays locked, so forgetting the secret can't leave it open."""
+    """A simple lock, with no settings file needed: the built-in password (above), or APP_PASSWORD from the
+    app's Secrets when one is set."""
     import hmac
     import os
 
@@ -173,13 +174,11 @@ def password_ok() -> bool:
         return True
     st.markdown(CSS + '<div class="pp"><div class="mast"><h1>Stop Looking at my Computer News</h1>'
                 '<div class="tag">Private reading page</div></div></div>', unsafe_allow_html=True)
-    if not expected:
-        st.warning("This page is locked: add APP_PASSWORD to the app's Secrets.")
-        return False
     with st.form("unlock", clear_on_submit=True):
         given = st.text_input("Password", type="password")
         if st.form_submit_button("Open today's edition"):
-            if hmac.compare_digest(given.encode(), expected.encode()):
+            right = hmac.compare_digest(given.encode(), expected.encode()) if expected else matches(given)
+            if right:
                 st.session_state["unlocked"] = True
                 st.rerun()
             st.error("That's not it.")
