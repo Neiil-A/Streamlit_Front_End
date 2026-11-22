@@ -39,7 +39,7 @@ FULL_TEXT_LICENCE = {
 # Titles that are noise, not news.
 JUNK = re.compile(r"\b(quiz|crossword|wordle|sudoku|horoscope|puzzle|deals?|discount|gift guide|recipe|shopping|"
                   r"photos? of the (day|week)|what to watch|how to watch|live updates|as it happened|podcast|"
-                  r"newsletter|sponsored|giveaway|coupon|red carpet|outfit|bikini|wardrobe)\b|– live$|- live$", re.I)
+                  r"newsletter|sponsored|giveaway|coupon|red carpet|outfit|bikini|wardrobe|wait wait|not my job)\b|– live$|- live$", re.I)
 
 
 @dataclass
@@ -97,6 +97,8 @@ def sharper(url: str) -> str:
     """A bigger copy of a picture where the publisher offers one (feeds often carry 240-500 px thumbnails)."""
     if not url.startswith("https://"):
         return ""
+    if re.search(r"[?&]s=[0-9a-f]{16,}", url):     # a signed address (the Guardian's): changing the size breaks it
+        return url
     url = re.sub(r"(media\.guim\.co\.uk/.+?)/(140|500)\.(jpg|jpeg|png)$", r"\1/1000.\3", url)
     url = re.sub(r"-\d{2,4}x\d{2,4}(\.(?:jpe?g|png|webp))(\?|$)", r"\1\2", url)          # WordPress-sized copies
     url = re.sub(r"([?&](?:w|width|resize))=\d+", lambda m: m.group(1) + "=1200", url)
@@ -146,6 +148,18 @@ RSS = (
     ("Quanta", "Science & health", "https://www.quantamagazine.org/feed/", False),
     ("Aeon", "Ideas", "https://aeon.co/feed.rss", False),
     ("The Conversation", "Ideas", "https://theconversation.com/us/articles.atom", False),
+    ("NPR", "Culture", "https://feeds.npr.org/1008/rss.xml", False),
+    ("The Conversation", "Culture", "https://theconversation.com/us/arts/articles.atom", False),
+    ("Smithsonian", "Culture", "https://www.smithsonianmag.com/rss/arts-culture/", False),
+    ("Literary Hub", "Culture", "https://lithub.com/feed/", False),
+    ("Hyperallergic", "Culture", "https://hyperallergic.com/feed/", False),
+    ("Open Culture", "Culture", "https://www.openculture.com/feed", False),
+    # the Guardian's own free feeds (no key): its API adds full text when a key is set; copies merge by address
+    ("The Guardian", "Science & health", "https://www.theguardian.com/science/rss", True),
+    ("The Guardian", "World", "https://www.theguardian.com/world/rss", True),
+    ("The Guardian", "Politics", "https://www.theguardian.com/us-news/rss", True),
+    ("The Guardian", "Business & markets", "https://www.theguardian.com/business/rss", True),
+    ("The Conversation", "Business & markets", "https://theconversation.com/us/business/articles.atom", False),
     ("ESPN NBA", "Sports", "https://www.espn.com/espn/rss/nba/news", True),
     ("ESPN NFL", "Sports", "https://www.espn.com/espn/rss/nfl/news", True),
     ("E! News", "Social", "https://www.eonline.com/syndication/feeds/rssfeeds/topstories.xml", True),
@@ -163,6 +177,19 @@ def _find(item, *paths):
     return None
 
 
+def _widest_picture(item) -> str:
+    """The biggest picture an item offers (feeds like the Guardian's list several sizes, smallest first)."""
+    best, best_w = "", -1
+    for tag in ("media:content", "media:thumbnail", "media:group/media:content", "enclosure"):
+        for m in item.findall(tag, _NS):
+            if "video" in (m.get("type") or "") or not m.get("url"):
+                continue
+            w = int(m.get("width") or 0)
+            if w > best_w:
+                best, best_w = m.get("url", ""), w
+    return best
+
+
 def parse_feed(xml_text: str, source: str, section: str, ordered: bool = True, limit: int = 12) -> list[Story]:
     root = ET.fromstring(xml_text)
     out = []
@@ -172,8 +199,7 @@ def parse_feed(xml_text: str, source: str, section: str, ordered: bool = True, l
             return item.findtext(tag, "", _NS) or ""
 
         rich, desc = text("content:encoded"), text("description") or text("rss1:description")
-        media = _find(item, "media:content", "media:thumbnail", "enclosure")
-        image = media.get("url", "") if media is not None and "video" not in (media.get("type") or "") else ""
+        image = _widest_picture(item)
         out.append(Story(
             _clean(text("title") or text("rss1:title"), 200), (text("link") or text("rss1:link")).strip(), source,
             section, _clean(desc), _when(text("pubDate") or text("dc:date")),
@@ -202,7 +228,7 @@ def rss_stories() -> list[Story]:
         except Exception:
             return []
 
-    with ThreadPoolExecutor(8) as pool:
+    with ThreadPoolExecutor(12) as pool:
         return [s for batch in pool.map(one, RSS) for s in batch]
 
 

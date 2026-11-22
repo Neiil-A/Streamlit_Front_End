@@ -17,6 +17,8 @@ from datetime import datetime, timedelta, timezone
 from press.feeds import PAYWALLED, SECTIONS, Story, gather
 
 MAX_AGE = timedelta(hours=48)
+SLOW_SECTIONS = {"Ideas": timedelta(days=14), "Culture": timedelta(days=7)}   # essays and reviews keep longer
+PER_SOURCE = 3              # no single outlet fills a section while others have something
 PER_SECTION = 8
 SOCIAL_LIMIT = 3
 STOP = set("a an the of to in on for and or but with at by from as is are was were be after over into amid says "
@@ -34,6 +36,19 @@ def importance(s: Story) -> float:
     """Carried by several outlets counts most; then a high place in an editor's own running order."""
     place = max(0, 6 - s.rank) if (s.pick or s.source in RUNNING_ORDER) else 0
     return 3 * len(s.also) + place + (0.5 if s.image else 0) + (0.5 if s.body else 0) - (4 if is_live(s) else 0)
+
+
+def varied(ranked: list[Story], limit: int, per_source: int = PER_SOURCE) -> list[Story]:
+    """The best `limit` stories, at most `per_source` from any one outlet unless nothing else is left; best first."""
+    picked, count = [], {}
+    for s in ranked:
+        if len(picked) < limit and count.get(s.source, 0) < per_source:
+            picked.append(s)
+            count[s.source] = count.get(s.source, 0) + 1
+    chosen = {id(s) for s in picked}
+    picked += [s for s in ranked if id(s) not in chosen][:limit - len(picked)]
+    order = {id(s): i for i, s in enumerate(ranked)}
+    return sorted(picked, key=lambda s: order[id(s)])
 
 
 def outlets(s: Story) -> int:
@@ -85,7 +100,7 @@ class Edition:
 def build(now: datetime | None = None) -> Edition:
     now = now or datetime.now(timezone.utc)
     raw, itn, history = gather()
-    fresh = [s for s in raw if not s.published or now - s.published <= MAX_AGE or s.section == "Ideas"]
+    fresh = [s for s in raw if not s.published or now - s.published <= SLOW_SECTIONS.get(s.section, MAX_AGE)]
     stories = merge(fresh)
     newest = lambda s: s.published or now - MAX_AGE
     weight = lambda s: (importance(s), newest(s))
@@ -97,6 +112,6 @@ def build(now: datetime | None = None) -> Edition:
     for name in SECTIONS:
         mine = [s for s in stories if s.section == name and id(s) not in shown and not is_live(s)]
         limit = SOCIAL_LIMIT if name == "Social" else PER_SECTION
-        sections[name] = sorted(mine, key=weight, reverse=True)[:limit]
+        sections[name] = varied(sorted(mine, key=weight, reverse=True), limit)
     return Edition(now, lead, [s for s in front if s is not lead], itn, sections, history,
                    sorted({s.source for s in raw}))

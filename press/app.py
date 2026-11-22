@@ -31,6 +31,8 @@ from press.feeds import FULL_TEXT_LICENCE, PAYWALLED, SECTIONS, Story  # noqa: E
 from press.lock import matches  # noqa: E402
 
 NAME = "Stop Looking at my Computer News"
+AUTHOR = "Neiil Apshankar"
+LINKEDIN_URL = ""            # https://www.linkedin.com/in/<name>/  (or LINKEDIN_URL in the app's Secrets)
 ET = ZoneInfo("America/New_York")
 NEWS_TTL, SPORTS_TTL = 45 * 60, 10 * 60
 MARKETS_FILE = ROOT / "data" / "markets.json"
@@ -107,12 +109,24 @@ table.t td { padding: .5rem .6rem; border-bottom: 1px solid #f0f0ec; font-varian
 .pill { display:inline-block; border-radius: 999px; padding: .2rem .65rem; margin: 0 .35rem .35rem 0; font-size: .8rem; font-weight: 600;
   background: #f0f0ec; color: var(--soft); }
 .pill.on { background: #fde8e7; color: var(--bad); }
-.lock { max-width: 420px; margin: 9vh auto 0; text-align: center; }
-.lock .mark { width: 56px; height: 56px; border-radius: 16px; margin: 0 auto 1rem; background: var(--ink); color: #fff;
-  display:flex; align-items:center; justify-content:center; font-size: 1.6rem; }
-.lock h1 { font-family: Inter; font-weight: 800; font-size: 1.45rem; letter-spacing: -.02em; margin: 0 0 .3rem; }
-.lock p { color: var(--muted); margin: 0 0 1.4rem; font-size: .92rem; }
+[data-testid="stForm"] { background: var(--card); border: 1px solid var(--line) !important; border-radius: 16px;
+  padding: 1.2rem 1.2rem 1.1rem; box-shadow: 0 1px 2px rgba(17,19,24,.04); }
+[data-testid="stForm"] input { font-size: 1rem; }
+.lockhead { display:flex; gap: .9rem; align-items:center; margin-bottom: .9rem; }
+.lockhead .mark { flex: 0 0 44px; height: 44px; border-radius: 12px; background: var(--ink); color: #fff;
+  display:flex; align-items:center; justify-content:center; font-size: 1.25rem; }
+.lockhead .t { font-weight: 800; font-size: 1.15rem; letter-spacing: -.01em; }
+.lockhead .s { color: var(--muted); font-size: .85rem; }
+.ghost { display:grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: .8rem; margin-top: 1rem; }
+.ghost div { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: .8rem .9rem; }
+.ghost b { display:block; font-size: .9rem; } .ghost span { color: var(--muted); font-size: .76rem; line-height: 1.4; }
 .foot { margin-top: 2.6rem; padding-top: 1rem; border-top: 1px solid var(--line); color: var(--muted); font-size: .76rem; line-height: 1.6; }
+.foot .who { display:flex; flex-wrap: wrap; align-items:center; gap: .5rem .9rem; margin-bottom: .55rem; color: var(--soft); font-size: .82rem; }
+.foot .who b { color: var(--ink); }
+.foot a.li { display:inline-flex; align-items:center; gap: .35rem; background: #0a66c2; color: #fff !important; border-radius: 999px;
+  padding: .2rem .7rem .2rem .45rem; font-weight: 600; font-size: .78rem; }
+.foot a.li:hover { background: #004182; }
+.foot a.li svg { width: 14px; height: 14px; fill: #fff; }
 [data-testid="stExpander"] details { border-radius: 12px; border: 1px solid var(--line); background: var(--card); }
 </style>
 """
@@ -220,9 +234,28 @@ def box(title: str, lines: list[str]) -> None:
                     + "</ul></div>", unsafe_allow_html=True)
 
 
+def linkedin() -> str:
+    """The LinkedIn address: LINKEDIN_URL in the app's Secrets, or the one written here."""
+    try:
+        given = str(st.secrets.get("LINKEDIN_URL", ""))
+    except Exception:
+        given = ""
+    link = given or LINKEDIN_URL
+    return link if link.startswith("https://www.linkedin.com/") or link.startswith("https://linkedin.com/") else ""
+
+
+LI_ICON = ('<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20.45 20.45h-3.56v-5.57c0-1.33-.02-3.04-1.85-3.04-1.85 0-2.14 '
+           '1.45-2.14 2.94v5.67H9.35V9h3.41v1.56h.05c.48-.9 1.64-1.85 3.37-1.85 3.6 0 4.27 2.37 4.27 5.46v6.28zM5.34 7.43a2.06 '
+           '2.06 0 1 1 0-4.13 2.06 2.06 0 0 1 0 4.13zM7.12 20.45H3.56V9h3.56v11.45zM22.22 0H1.77C.79 0 0 .77 0 1.73v20.54C0 23.23.79 '
+           '24 1.77 24h20.45c.98 0 1.78-.77 1.78-1.73V1.73C24 .77 23.2 0 22.22 0z"/></svg>')
+
+
 def footer(e: Edition | None = None) -> None:
     src = f" Sources today: {esc(', '.join(e.sources))}." if e else ""
-    st.markdown(f'<div class="x foot">Headlines, summaries and pictures belong to their publishers, and every story links '
+    li = linkedin()
+    who = (f'<div class="who"><span><b>{esc(NAME)}</b> · put together by {esc(AUTHOR)}</span>'
+           + (f'<a class="li" href="{esc(li)}" target="_blank" rel="noopener">{LI_ICON}LinkedIn</a>' if li else "") + "</div>")
+    st.markdown(f'<div class="x foot">{who}Headlines, summaries and pictures belong to their publishers, and every story links '
                 f'to the original; "Reported by" counts the separate outlets carrying the same story, each one linked.'
                 f'{src} Nothing here is written or rewritten by AI. A personal reading page, not a product or service.</div>',
                 unsafe_allow_html=True)
@@ -388,18 +421,33 @@ def password_ok() -> bool:
         expected = str(st.secrets.get("APP_PASSWORD", "")) or os.environ.get("APP_PASSWORD", "")
     except Exception:
         expected = os.environ.get("APP_PASSWORD", "")
-    st.markdown(CSS + '<div class="x lock"><div class="mark">🗞️</div><h1>Stop Looking at my Computer News</h1>'
-                '<p>A private reading page. Enter the password to open today\'s edition.</p></div>', unsafe_allow_html=True)
-    _, mid, _ = st.columns([1, 1.1, 1])
-    with mid:
+    brand("Private edition")
+    left, right = st.columns([2.1, 1], gap="large")
+    with left:
+        st.markdown('<div class="x"><div class="page-title">Today\'s edition is ready</div><div class="page-sub">A private '
+                    'reading page. Enter the password to open it.</div></div>', unsafe_allow_html=True)
         with st.form("unlock", clear_on_submit=True, border=False):
+            st.markdown('<div class="x lockhead"><div class="mark">🗞️</div><div><div class="t">Sign in</div>'
+                        '<div class="s">Stays open until you close the tab.</div></div></div>', unsafe_allow_html=True)
             given = st.text_input("Password", type="password", label_visibility="collapsed", placeholder="Password")
-            if st.form_submit_button("Open", use_container_width=True, type="primary"):
-                right = hmac.compare_digest(given.encode(), expected.encode()) if expected else matches(given)
-                if right:
+            if st.form_submit_button("Open today's edition", width="stretch", type="primary"):
+                right_one = hmac.compare_digest(given.encode(), expected.encode()) if expected else matches(given)
+                if right_one:
                     st.session_state["unlocked"] = True
                     st.rerun()
                 st.error("That's not it.")
+        st.markdown('<div class="x ghost">' + "".join(
+            f"<div><b>{esc(t)}</b><span>{esc(s)}</span></div>" for t, s in (
+                ("Front page", "The day's top stories, ranked by how many outlets carry them"),
+                ("Sections", "World, Politics, Business, Technology, Science, Ideas, Culture"),
+                ("Sports", "Scores, top performers, quotes, what's next, tables"),
+                ("Markets", "Public market data against the last three years"))) + "</div>", unsafe_allow_html=True)
+    with right:
+        box("How it works", ["Free sources only, so every link opens without a subscription.",
+                             "Each story shows how many outlets report it, with a link to every one.",
+                             "Where the publisher allows it, the full article opens right on the page.",
+                             "Nothing is written or rewritten by AI."])
+    footer()
     return False
 
 
