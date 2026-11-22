@@ -1,0 +1,20 @@
+# © 2026 Neiil Apshankar. All rights reserved. Personal project — not an app, platform, or business. See NOTICE.md.
+# Theme for Purified Press (press/app.py): newspaper paper and ink. The retired Mercury app used a dark theme.
+[theme]
+base = "light"
+primaryColor = "#9a7a2e"
+backgroundColor = "#faf7f0"
+secondaryBackgroundColor = "#f1ebdf"
+textColor = "#16130f"
+font = "serif"
+
+[client]
+toolbarMode = "minimal"
+
+[browser]
+gatherUsageStats = false
+
+[server]
+headless = true
+port = 8501
+enableStaticServing = true
