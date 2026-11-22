@@ -1,12 +1,12 @@
 # © 2026 Neiil Apshankar. All rights reserved. Personal project — not an app, platform, or business. See NOTICE.md.
-# Theme for Purified Press (press/app.py): newspaper paper and ink. The retired Mercury app used a dark theme.
+# Theme for Stop Looking at my Computer News (press/app.py): cool white, navy and steel blue.
 [theme]
 base = "light"
-primaryColor = "#9a7a2e"
-backgroundColor = "#faf7f0"
-secondaryBackgroundColor = "#f1ebdf"
-textColor = "#16130f"
-font = "serif"
+primaryColor = "#1d4f91"
+backgroundColor = "#f4f6f9"
+secondaryBackgroundColor = "#e9eef5"
+textColor = "#0b1b33"
+font = "sans serif"
 
 [client]
 toolbarMode = "minimal"

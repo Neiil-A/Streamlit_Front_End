@@ -17,9 +17,9 @@ from datetime import datetime, timedelta, timezone
 from press.feeds import PAYWALLED, SECTIONS, Story, gather
 
 MAX_AGE = timedelta(hours=48)
-SLOW_SECTIONS = {"Ideas": timedelta(days=14), "Culture": timedelta(days=7)}   # essays and reviews keep longer
-PER_SOURCE = 3              # no single outlet fills a section while others have something
-PER_SECTION = 8
+SLOW_SECTIONS = {"Ideas": timedelta(days=14), "Entertainment": timedelta(days=7)}   # essays and reviews keep longer
+PER_SOURCE = 4              # no single outlet fills a section while others have something
+PER_SECTION = 14           # the briefing's top five, then more
 SOCIAL_LIMIT = 3
 STOP = set("a an the of to in on for and or but with at by from as is are was were be after over into amid says "
            "say new how why what who will can its it this that his her their our your us".split())

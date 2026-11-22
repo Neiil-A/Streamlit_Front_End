@@ -222,12 +222,19 @@ def quotes(stories: list[Story], n: int = 4) -> list[tuple[str, Story]]:
 def news(league: str, n: int = 8) -> list[Story]:
     """The league's headlines: ESPN's, plus the Guardian's (with full text) for soccer and tennis."""
     path, kind, feed, guardian = LEAGUES[league]
+    espn: list[Story] = []
     stories: list[Story] = []
     try:
-        stories += parse_feed(_get(feed).text, "ESPN", "Sports", True, limit=n)
+        espn = parse_feed(_get(feed).text, "ESPN", "Sports", True, limit=n)
     except Exception:
         pass
     key = _key("GUARDIAN_API_KEY")
+    if guardian and not key:      # the Guardian's free feed for the league (no key, no full text)
+        try:
+            stories += parse_feed(_get(f"https://www.theguardian.com/{guardian}/rss").text, "The Guardian", "Sports", True,
+                                  limit=n)
+        except Exception:
+            pass
     if guardian and key:
         from press.feeds import GUARDIAN, _guardian_story
 
@@ -238,4 +245,5 @@ def news(league: str, n: int = 8) -> list[Story]:
             stories += [s for r in body.get("results", []) if (s := _guardian_story(r, "Sports"))]
         except Exception:
             pass
-    return stories
+    # ESPN's soccer feed covers every league, so for soccer the Guardian's league-specific stories come first
+    return stories + espn if kind == "soccer" else espn + stories

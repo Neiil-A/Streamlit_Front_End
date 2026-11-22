@@ -28,7 +28,7 @@ import requests
 
 UA = {"User-Agent": "Mozilla/5.0 (personal news reader; non-commercial)"}
 TIMEOUT = 15
-SECTIONS = ("World", "Politics", "Business & markets", "Technology", "Science & health", "Ideas", "Culture",
+SECTIONS = ("World", "Politics", "Business & markets", "Technology", "Science & health", "Ideas", "Entertainment",
             "Sports", "Social")
 PAYWALLED = {"The New York Times"}
 FULL_TEXT_LICENCE = {
@@ -148,12 +148,15 @@ RSS = (
     ("Quanta", "Science & health", "https://www.quantamagazine.org/feed/", False),
     ("Aeon", "Ideas", "https://aeon.co/feed.rss", False),
     ("The Conversation", "Ideas", "https://theconversation.com/us/articles.atom", False),
-    ("NPR", "Culture", "https://feeds.npr.org/1008/rss.xml", False),
-    ("The Conversation", "Culture", "https://theconversation.com/us/arts/articles.atom", False),
-    ("Smithsonian", "Culture", "https://www.smithsonianmag.com/rss/arts-culture/", False),
-    ("Literary Hub", "Culture", "https://lithub.com/feed/", False),
-    ("Hyperallergic", "Culture", "https://hyperallergic.com/feed/", False),
-    ("Open Culture", "Culture", "https://www.openculture.com/feed", False),
+    ("NPR", "Entertainment", "https://feeds.npr.org/1008/rss.xml", False),
+    ("NPR", "Entertainment", "https://feeds.npr.org/1045/rss.xml", False),          # movies
+    ("NPR", "Entertainment", "https://feeds.npr.org/1039/rss.xml", False),          # music
+    ("The Guardian", "Entertainment", "https://www.theguardian.com/culture/rss", False),
+    ("The Conversation", "Entertainment", "https://theconversation.com/us/arts/articles.atom", False),
+    ("Smithsonian", "Entertainment", "https://www.smithsonianmag.com/rss/arts-culture/", False),
+    ("Literary Hub", "Entertainment", "https://lithub.com/feed/", False),
+    ("Hyperallergic", "Entertainment", "https://hyperallergic.com/feed/", False),
+    ("Open Culture", "Entertainment", "https://www.openculture.com/feed", False),
     # the Guardian's own free feeds (no key): its API adds full text when a key is set; copies merge by address
     ("The Guardian", "Science & health", "https://www.theguardian.com/science/rss", True),
     ("The Guardian", "World", "https://www.theguardian.com/world/rss", True),
@@ -241,7 +244,7 @@ GUARDIAN_GROUPS = (
     ("science|environment", "Science & health"),
     ("technology", "Technology"),
     ("business", "Business & markets"),
-    ("books|culture|film|music|artanddesign|stage", "Culture"),
+    ("books|culture|film|music|artanddesign|stage", "Entertainment"),
 )
 GUARDIAN_LONG_READ = "news/series/the-long-read"
 GUARDIAN_PATHS = {
@@ -251,7 +254,7 @@ GUARDIAN_PATHS = {
     "Technology": ("technology",),
     "Business & markets": ("business", "money"),
     "Sports": ("sport", "football"),
-    "Culture": ("culture", "film", "music", "books", "artanddesign", "stage", "tv-and-radio"),
+    "Entertainment": ("culture", "film", "music", "books", "artanddesign", "stage", "tv-and-radio"),
     "Ideas": ("commentisfree", "news"),
 }
 GUARDIAN_SKIP = ("lifeandstyle", "fashion", "food", "travel", "games", "crosswords", "thefilter", "wellness")
@@ -308,7 +311,7 @@ def guardian_stories() -> list[Story]:
 NYT_TOP = "https://api.nytimes.com/svc/topstories/v2/{}.json"
 NYT_SECTIONS = ("home", "politics", "science", "arts")
 NYT_SECTION_OF = {"us": "Politics", "world": "World", "business": "Business & markets", "technology": "Technology",
-                  "science": "Science & health", "health": "Science & health", "arts": "Culture", "books": "Culture",
+                  "science": "Science & health", "health": "Science & health", "arts": "Entertainment", "books": "Entertainment",
                   "sports": "Sports", "opinion": "Ideas", "politics": "Politics"}
 
 
