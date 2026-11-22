@@ -1,8 +1,8 @@
 # © 2026 Neiil Apshankar. All rights reserved. Personal project — not an app, platform, or business. See NOTICE.md.
-"""Purified Water's findings, sealed with the site password so they can sit in a public repository.
+"""The market findings, sealed with the site password so they can sit in a public repository.
 
-PHANTOM seals the findings with the reader's password (PRESS_PASSWORD in its .env) before pushing them to
-the reader's repository; the reader opens them with the password typed at the lock screen. Without the
+The home machine seals the findings with the reader's password (PRESS_PASSWORD in its .env) before pushing
+them to the reader's repository; the reader opens them with the password typed at the lock screen. Without the
 password the file is unreadable: Fernet (AES-128-CBC with an HMAC-SHA256 check), keyed by PBKDF2-SHA256 over
 the password with a fresh random salt each time. A wrong password or a changed file opens to nothing.
 """

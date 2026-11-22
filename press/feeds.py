@@ -42,6 +42,51 @@ JUNK = re.compile(r"\b(quiz|crossword|wordle|sudoku|horoscope|puzzle|deals?|disc
                   r"newsletter|sponsored|giveaway|coupon|red carpet|outfit|bikini|wardrobe|wait wait|not my job)\b|– live$|- live$", re.I)
 
 
+# Negative noise the paper leaves out (the reader's rule): violence and death, crime and arrests, immigration
+# enforcement. Market falls, job losses and scandals stay in.
+GRIM = re.compile(
+    r"\b(kill(s|ed|ing|ings)?|murder(s|ed|er|ers|ing)?|homicides?|manslaughter|slain|massacres?|mass shootings?|"
+    r"school shootings?|fatal shootings?|shooting (suspect|victims?|deaths?|spree)|shot (dead|and killed)|gunm[ae]n|"
+    r"gunfire|active shooter|stabb(ing|ings|ed)|death toll|\d+ (dead|killed|die)|found dead|dead (after|in)|dies|died|"
+    r"deaths?|funerals?|arrest(s|ed|ing)?|detain(s|ed|ee|ees)?|detention|deport(s|ed|ing|ation|ations)?|"
+    r"immigration (raids?|agents?|enforcement|crackdown|arrests?|officers?|sweeps?)|border patrol|police|manhunt|"
+    r"suspects?|charged with|sentenced|jail(ed)?|prison(s|er|ers)?|convicted|rape[sd]?|sexual (assault|abuse)|"
+    r"child abuse|kidnap(ped|ping|pings)?|hostages?|terror(ist|ists|ism)?|bombings?|suicide|overdoses?|"
+    r"carjack(ing)?|robbery|assault(s|ed)?|violen(ce|t)|hate crimes?|abuse(?! of power)|abused|abusive)\b", re.I)
+GRIM_CASE = re.compile(r"\bICE\b|Immigration and Customs Enforcement")
+
+
+def grim(*texts: str) -> bool:
+    text = " ".join(t or "" for t in texts)
+    return bool(GRIM.search(text) or GRIM_CASE.search(text))
+
+
+# Summaries must read as summaries: no first-person openings lifted from essays ("I'm a snow scientist..."),
+# no "let's take a look", no "The post ... appeared first on ..." tails, whole sentences only.
+BOILER = re.compile(r"The post .{0,200}? appeared first on .{0,80}?\.?\s*$|Continue reading\W*$|Read more\W*$|"
+                    r"\[(…|\.\.\.)\]", re.I)
+SPEAKER_VOICE = re.compile(r"\b(I|I'm|I’m|I've|I’ve|I'd|I’d|I'll|I’ll|me|my|mine|myself|we|we're|we’re|we've|we’ve|"
+                           r"our|ours|ourselves|let's|let’s|you|you're|you’re|your|yours)\b", re.I)
+SUMMARY_LIMIT = 300
+
+
+def tidy(text: str) -> str:
+    text = BOILER.sub("", text or "").strip()
+    if not text:
+        return ""
+    parts = re.split(r"(?<=[.!?”\"’])\s+(?=[A-Z“\"‘(])", text)
+    if text.endswith(("…", "...")) and len(parts) > 1:      # cut off mid-sentence: drop the fragment
+        parts = parts[:-1]
+    out = ""
+    for p in (p for p in parts if not SPEAKER_VOICE.search(p)):
+        if out and len(out) + len(p) > SUMMARY_LIMIT:
+            break
+        out = f"{out} {p}".strip()
+    if len(out) > SUMMARY_LIMIT + 120:
+        out = out[:SUMMARY_LIMIT].rsplit(" ", 1)[0] + "…"
+    return out
+
+
 @dataclass
 class Story:
     title: str
@@ -58,9 +103,33 @@ class Story:
     also: list[str] = field(default_factory=list)                     # other outlets with the same story
     links: list[tuple[str, str]] = field(default_factory=list)        # (outlet, link) for each of them
 
+    def __post_init__(self):
+        self.summary = tidy(self.summary)
+        # a summary that only repeats the headline says nothing: drop that sentence
+        lead = re.split(r"(?<=[.!?])\s+", self.summary, maxsplit=1)
+        if self.summary and _same_words(lead[0], self.title):
+            self.summary = lead[1] if len(lead) > 1 else ""
+
+
+def _same_words(a: str, b: str) -> bool:
+    wa, wb = set(re.findall(r"[a-z0-9]+", a.lower())), set(re.findall(r"[a-z0-9]+", b.lower()))
+    return bool(wa) and len(wa & wb) / max(len(wa), 1) > 0.8
+
+
+def _summary_text(html_text: str) -> str:
+    """A feed item's summary as sentences. Where the publisher gives a standfirst as bullet points (the
+    Guardian's "what happened" lines), use those; otherwise the paragraphs, each ending as a sentence."""
+    items = [_clean(i, 300) for i in re.findall(r"(?is)<li[^>]*>(.*?)</li>", html_text or "")]
+    items = [i if i.endswith((".", "!", "?", "”", "’", '"')) else i + "." for i in items if i]
+    if items:
+        return " ".join(items)
+    paras = [_clean(p, 800) for p in re.split(r"(?i)</p>|<br\s*/?>|</h\d>|</div>", html_text or "")]
+    paras = [p if p.endswith((".", "!", "?", "”", "’", '"', "…")) else p + "." for p in paras if p]
+    return _clean(" ".join(paras), 800)
+
 
 def _key(name: str) -> str:
-    """The environment (.env, when PHANTOM runs it) first, then Streamlit's secrets (when hosted)."""
+    """The environment (.env, when run on the home machine) first, then Streamlit's secrets (when hosted)."""
     if os.environ.get(name):
         return os.environ[name]
     try:
@@ -205,7 +274,7 @@ def parse_feed(xml_text: str, source: str, section: str, ordered: bool = True, l
         image = _widest_picture(item)
         out.append(Story(
             _clean(text("title") or text("rss1:title"), 200), (text("link") or text("rss1:link")).strip(), source,
-            section, _clean(desc), _when(text("pubDate") or text("dc:date")),
+            section, _summary_text(desc), _when(text("pubDate") or text("dc:date")),
             sharper(image or _first_image(rich) or _first_image(desc)), rank=i if ordered else 99,
             body=paragraphs(rich) if source in FULL_TEXT_LICENCE and len(rich) > 1500 else "",
             byline=_clean(text("dc:creator"), 80)))
@@ -215,12 +284,12 @@ def parse_feed(xml_text: str, source: str, section: str, ordered: bool = True, l
         author = entry.find("atom:author/atom:name", _NS)
         out.append(Story(
             _clean(entry.findtext("atom:title", "", _NS), 200), link.get("href", "") if link is not None else "",
-            source, section, _clean(entry.findtext("atom:summary", "", _NS) or content),
+            source, section, _summary_text(entry.findtext("atom:summary", "", _NS) or content),
             _when(entry.findtext("atom:published", "", _NS) or entry.findtext("atom:updated", "", _NS)),
             sharper(_first_image(content)), rank=i if ordered else 99,
             body=paragraphs(content) if source in FULL_TEXT_LICENCE else "",
             byline=author.text if author is not None and author.text else ""))
-    return [s for s in out if s.title and s.url and not JUNK.search(s.title)][:limit]
+    return [s for s in out if s.title and s.url and not JUNK.search(s.title) and not grim(s.title)][:limit]
 
 
 def rss_stories() -> list[Story]:
@@ -272,13 +341,13 @@ def _guardian_story(r: dict, section: str, pick: bool = False, rank: int = 99) -
     f = r.get("fields") or {}
     if pick:
         section = guardian_section(r.get("webUrl", ""))
-    if not section or JUNK.search(r.get("webTitle", "")):
+    if not section or JUNK.search(r.get("webTitle", "")) or grim(r.get("webTitle", "")):
         return None
     body = "\n\n".join(p.strip() for p in re.split(r"\n+", f.get("bodyText", "")) if p.strip())
     if body.count("\n\n") < 2:   # the API's plain text often has no line breaks: split into ~4-sentence paragraphs
         sentences = re.split(r"(?<=[.!?\"”])\s+(?=[A-Z“\"])", body)
         body = "\n\n".join(" ".join(sentences[i:i + 4]) for i in range(0, len(sentences), 4))
-    return Story(r.get("webTitle", ""), r.get("webUrl", ""), "The Guardian", section, _clean(f.get("trailText", "")),
+    return Story(r.get("webTitle", ""), r.get("webUrl", ""), "The Guardian", section, _summary_text(f.get("trailText", "")),
                  _when(r.get("webPublicationDate", "")), sharper(f.get("thumbnail", "")), pick, rank=rank,
                  body=body if len(body) > 600 else "", byline=_clean(f.get("byline", ""), 80))
 
@@ -324,7 +393,7 @@ def nyt_stories() -> list[Story]:
         try:
             for i, r in enumerate(_get(NYT_TOP.format(name), **{"api-key": key}).json().get("results", [])[:12]):
                 media = {m.get("format"): m.get("url", "") for m in r.get("multimedia") or []}
-                if r.get("title") and not JUNK.search(r["title"]):
+                if r.get("title") and not JUNK.search(r["title"]) and not grim(r["title"]):
                     out.append(Story(r["title"], r.get("url", ""), "The New York Times",
                                      NYT_SECTION_OF.get(r.get("section", ""), "World"), _clean(r.get("abstract", "")),
                                      _when(r.get("published_date", "")),
@@ -349,8 +418,9 @@ def in_the_news() -> list[str]:
     except Exception:
         return []
     block = text.split("Ongoing")[0]
-    return [re.sub(r"\s+\((pictured|rendering shown|shown)\)", "", _clean(i, 400))
-            for i in re.findall(r"<li>(.*?)</li>", block, re.S)][:6]
+    items = [re.sub(r"\s+\((pictured|rendering shown|shown)\)", "", _clean(i, 400))
+             for i in re.findall(r"<li>(.*?)</li>", block, re.S)]
+    return [i for i in items if not grim(i)][:6]
 
 
 def on_this_day(day: date | None = None, n: int = 4) -> list[str]:

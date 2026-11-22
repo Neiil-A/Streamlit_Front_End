@@ -1,13 +1,15 @@
 # © 2026 Neiil Apshankar. All rights reserved. Personal project — not an app, platform, or business. See NOTICE.md.
 """Stop Looking at my Computer News: the day's news, from free sources, as a modern reading page.
 
-Pages along the top: the front page (with Purified Water's findings in brief), one page per section (each
-opening with a five-point briefing), Sports (every league at a glance, then results, standouts, quotes,
-what's next and tables) and Markets (Purified Water's public market findings). Stories show how many
-outlets report them, with a link to each; where the publisher allows it, the full article opens right here.
+Pages along the top: the front page (a guide to every page, the economy in brief and what's coming up), one
+page per section (each opening with a five-point briefing), Sports (every league at a glance, then recaps,
+results, top performers, quotes, a week of fixtures and tables) and Markets (the economy's vital signs from
+Neiil's own tools). Stories show how many outlets report them, with a link to each; where the publisher
+allows it, the full article opens right here. Grim news (violence, crime, arrests, immigration raids) is
+left out on purpose.
 
-Purified Water's findings arrive sealed with the site password (press/vault.py) and are opened with the
-password typed at the lock screen, so the repository can stay public.
+The market findings arrive sealed with the site password (press/vault.py) and are opened with the password
+typed at the lock screen, so the repository can stay public.
 
 Run locally:   .venv/bin/streamlit run press/app.py
 Hosted:        Streamlit Community Cloud, main file streamlit_app.py (or press/app.py). Works with no
@@ -40,12 +42,25 @@ AUTHOR = "Neiil Apshankar"
 LINKEDIN_URL = "https://www.linkedin.com/in/neiil-apshankar/"     # LINKEDIN_URL in the app's Secrets overrides it
 ET = ZoneInfo("America/New_York")
 NEWS_TTL, SPORTS_TTL = 45 * 60, 10 * 60
-SEALED_FILE = ROOT / "data" / "findings.json"                              # what PHANTOM publishes (sealed)
-LOCAL_FILES = (ROOT / "data" / "markets.json", ROOT / "data" / "backtests" / "markets.json")   # on PHANTOM's machine
+SEALED_FILE = ROOT / "data" / "findings.json"                              # published each night, sealed
+LOCAL_FILES = (ROOT / "data" / "markets.json", ROOT / "data" / "backtests" / "markets.json")   # on the home machine
 NAV_SECTIONS = [s for s in SECTIONS if s not in ("Sports", "Social")]
 BRIEF = 5
 ALL_SPORTS = "All sports"
 PAGES: dict = {}
+MADE_BY = "Neiil built and developed for critical economy insights"
+GUIDE = {   # what each page has, shown on the front page and under each page's title
+    "Front page": ("🗞️", "Today's top stories, the economy in plain words, and what's coming up in the weeks ahead"),
+    "World": ("🌍", "Major events in other countries: diplomacy, elections, economies"),
+    "Politics": ("🏛️", "US government: Congress, the White House, courts and elections"),
+    "Business & markets": ("💼", "Companies, the economy, and how every industry's shares are doing"),
+    "Technology": ("💡", "Tech companies, AI, gadgets and the internet"),
+    "Science & health": ("🔬", "Discoveries, medicine, climate, and health-care shares"),
+    "Ideas": ("📚", "Essays and explainers worth your time"),
+    "Entertainment": ("🎬", "Movies, music, books, art and TV"),
+    "Sports": ("🏅", "Recaps, scores, top performers, quotes and a week of upcoming games for every major league"),
+    "Markets": ("📈", "The economy's vital signs, explained, and every market against its last three years"),
+}
 
 st.set_page_config(page_title=NAME, page_icon="🗞️", layout="wide", initial_sidebar_state="collapsed")
 
@@ -55,7 +70,23 @@ CSS = """
 :root { --bg:#f4f6f9; --card:#ffffff; --ink:#0b1b33; --soft:#3e4c63; --muted:#7b879a; --line:#e2e7ef;
         --accent:#1d4f91; --sky:#8fb3e3; --navy:#0a2342; --good:#0e7a4e; --bad:#c0392b; --chip:#e8eef8; }
 .stApp, [data-testid="stAppViewContainer"] { background: var(--bg); }
-[data-testid="stHeader"] { background: rgba(244,246,249,.86); backdrop-filter: blur(10px); border-bottom: 1px solid var(--line); }
+[data-testid="stHeader"] { background: linear-gradient(90deg, #071a33, #0d2e58 60%, #16427a); border-bottom: 3px solid var(--sky); }
+[data-testid="stHeader"] [data-testid="stToolbar"] button, [data-testid="stHeader"] svg { color: #fff !important; fill: #fff !important; }
+[data-testid="stTopNavLink"] { background: rgba(255,255,255,.10); border-radius: 999px; padding: .32rem .85rem !important; margin: 0 .12rem;
+  border: 1px solid rgba(255,255,255,.18); transition: background .15s; }
+[data-testid="stTopNavLink"], [data-testid="stTopNavLink"] * { color: #e9f0fb !important; font-weight: 600 !important; font-size: .86rem !important; }
+[data-testid="stTopNavLink"]:hover { background: rgba(255,255,255,.22); }
+[data-testid="stTopNavLink"][aria-current="page"] { background: #fff; border-color: #fff; }
+[data-testid="stTopNavLink"][aria-current="page"], [data-testid="stTopNavLink"][aria-current="page"] * { color: #0a2342 !important; }
+[data-testid="stTopNavSection"], [data-testid="stTopNavSection"] * { color: #fff !important; font-weight: 600; }
+[data-testid="stBaseButton-segmented_control"] { background: #e3ecf9 !important; border: 1px solid #c3d4ee !important; }
+[data-testid="stBaseButton-segmented_control"], [data-testid="stBaseButton-segmented_control"] * { color: #1d4f91 !important; font-weight: 600 !important; }
+[data-testid="stBaseButton-segmented_control"]:hover { background: #cfdef5 !important; }
+[data-testid="stBaseButton-segmented_controlActive"] { background: #0a2342 !important; border: 1px solid #0a2342 !important; }
+[data-testid="stBaseButton-segmented_controlActive"], [data-testid="stBaseButton-segmented_controlActive"] * { color: #fff !important; font-weight: 700 !important; }
+[data-testid="stPageLink"] a { background: #e8eef8; border: 1px solid #c9d7ee; border-radius: 10px; padding: .35rem .7rem; }
+[data-testid="stPageLink"] a:hover { background: #d6e3f6; }
+[data-testid="stPageLink"] a * { color: #0a2342 !important; font-weight: 700 !important; }
 .block-container { max-width: 1240px; padding-top: 3.8rem; padding-bottom: 4rem; }
 html, body, .x, .x p, .x li, .x td { font-family: Inter, -apple-system, Segoe UI, sans-serif; color: var(--ink); }
 .x a { color: inherit; text-decoration: none; }
@@ -133,8 +164,8 @@ html, body, .x, .x p, .x li, .x td { font-family: Inter, -apple-system, Segoe UI
 .quote a { display:block; font-family: Inter; font-size: .74rem; color: var(--muted); margin-top: .25rem; }
 .tw { overflow-x: auto; margin-bottom: 1rem; }
 table.t { width:100%; border-collapse: collapse; font-size: .88rem; background: var(--card); border-radius: 12px; overflow: hidden; }
-table.t th { text-align:left; color: var(--muted); font-weight: 700; font-size: .68rem; text-transform: uppercase; letter-spacing: .08em;
-  padding: .6rem .6rem; border-bottom: 1px solid var(--line); background: #f8fafc; }
+table.t th { text-align:left; color: #fff; font-weight: 700; font-size: .68rem; text-transform: uppercase; letter-spacing: .08em;
+  padding: .62rem .6rem; background: linear-gradient(90deg, #0a2342, #16427a); }
 table.t td { padding: .5rem .6rem; border-bottom: 1px solid #eef1f5; font-variant-numeric: tabular-nums; }
 table.t .fund { color: var(--muted); font-size: .72rem; margin-left: .3rem; }
 .up { color: var(--good); font-weight: 600; } .down { color: var(--bad); font-weight: 600; }
@@ -177,6 +208,48 @@ a.li svg { width: 15px; height: 15px; fill: #fff; }
 .foot .who { display:flex; flex-wrap: wrap; align-items:center; gap: .5rem .9rem; margin-bottom: .55rem; color: var(--soft); font-size: .82rem; }
 .foot .who b { color: var(--navy); }
 [data-testid="stExpander"] details { border-radius: 12px; border: 1px solid var(--line); background: var(--card); }
+.cred { color: var(--muted); font-size: .76rem; white-space: nowrap; }
+.credit { font-size: .74rem; color: var(--muted); margin: -.6rem 0 1rem; font-style: italic; }
+.guide-d { font-size: .78rem; color: var(--soft); line-height: 1.4; margin: .25rem 0 .8rem; min-height: 2.2em; }
+.cal li { list-style: none; margin: 0 0 .55rem; } .cal ul { padding-left: 0 !important; }
+.cal .d { display:inline-block; min-width: 5.6rem; font-weight: 700; color: var(--navy); font-size: .82rem; }
+.cal .k { display:inline-block; border-radius: 999px; padding: .05rem .45rem; font-size: .64rem; font-weight: 700; margin-right: .35rem;
+  text-transform: uppercase; letter-spacing: .06em; }
+.k-Fed { background: #0a2342; color: #fff; } .k-Economy { background: #dbe7f8; color: #1d4f91; }
+.k-Holiday { background: #eef1f5; color: #5b6678; } .k-Earnings { background: #e2f3ea; color: #0e7a4e; }
+.banner { display:flex; align-items:center; gap: .9rem; border-radius: 16px; padding: .9rem 1.1rem; margin: .4rem 0 1rem; color: #fff;
+  background: radial-gradient(600px 200px at 100% 0%, rgba(143,179,227,.35), transparent 60%), linear-gradient(120deg, #071a33, #16427a); }
+.banner .lgo { width: 46px; height: 46px; border-radius: 12px; background: #fff; display:flex; align-items:center; justify-content:center; flex: 0 0 46px; }
+.banner .lgo img { width: 36px; height: 36px; object-fit: contain; }
+.banner b { font-size: 1.25rem; letter-spacing: -.01em; display:block; } .banner span { font-size: .8rem; color: rgba(255,255,255,.75); }
+.gc { background: var(--card); border: 1px solid var(--line); border-left: 4px solid var(--accent); border-radius: 12px; padding: .8rem .95rem;
+  margin-bottom: .75rem; box-shadow: 0 1px 2px rgba(10,35,66,.04); }
+.gc.live { border-left-color: var(--bad); } .gc.pre { border-left-color: var(--sky); background: #f7faff; }
+.gc .top { display:flex; justify-content: space-between; gap: .6rem; flex-wrap: wrap; font-size: .7rem; font-weight: 700; color: var(--accent);
+  text-transform: uppercase; letter-spacing: .06em; margin-bottom: .45rem; }
+.gc.live .top .when { color: var(--bad); } .gc .top .venue { color: var(--muted); font-weight: 600; text-transform: none; letter-spacing: 0; }
+.gc .row { display:grid; grid-template-columns: 26px 1fr auto auto; align-items:center; gap: .55rem; padding: .16rem 0; font-size: .95rem; }
+.gc .row img, .lg img.tl { width: 24px; height: 24px; object-fit: contain; }
+.gc .row.win { font-weight: 800; } .gc .rec { color: var(--muted); font-size: .74rem; font-weight: 500; margin-left: .35rem; }
+.gc .per { color: var(--muted); font-size: .74rem; font-variant-numeric: tabular-nums; letter-spacing: .04em; }
+.gc .sc { font-weight: 800; font-size: 1.15rem; font-variant-numeric: tabular-nums; min-width: 2.2rem; text-align: right; color: var(--navy); }
+.gc .recap { margin-top: .55rem; padding: .55rem .7rem; background: #f3f7fd; border-radius: 10px; font-size: .86rem; line-height: 1.45; color: var(--soft); }
+.gc .recap b { display:block; color: var(--ink); font-size: .9rem; margin-bottom: .15rem; }
+.gc .stars { display:flex; flex-wrap: wrap; gap: .4rem .8rem; margin-top: .55rem; }
+.gc .star { display:inline-flex; align-items:center; gap: .4rem; font-size: .8rem; color: var(--soft); background: #f6f8fb;
+  border: 1px solid #e6ebf2; border-radius: 999px; padding: .15rem .6rem .15rem .2rem; }
+.gc .star img { width: 26px; height: 26px; border-radius: 50%; object-fit: cover; background: #e6ebf2; }
+.gc .links { margin-top: .5rem; font-size: .76rem; } .gc .links a { color: var(--accent) !important; font-weight: 600; }
+.day { display:inline-block; background: var(--navy); color: #fff; border-radius: 999px; padding: .18rem .7rem; font-size: .72rem; font-weight: 700;
+  letter-spacing: .04em; margin: .6rem 0 .5rem; }
+.lg { padding: 0 0 .7rem; overflow: hidden; }
+.lg .lh { display:flex; align-items:center; gap: .6rem; padding: .7rem 1rem; color: #fff; background: linear-gradient(120deg, #0a2342, #16427a); }
+.lg .lh .lgo { width: 32px; height: 32px; border-radius: 8px; background: #fff; display:flex; align-items:center; justify-content:center; }
+.lg .lh .lgo img { width: 26px; height: 26px; object-fit: contain; }
+.lg .lh b { font-size: 1rem; } .lg .lh span { margin-left: auto; font-size: .72rem; color: rgba(255,255,255,.72); }
+.lg .k, .lg .g, .lg .n { margin-left: 1rem; margin-right: 1rem; }
+.lg .g { display:flex; gap: .5rem; align-items: flex-start; } .lg .g .tx { flex: 1; }
+.lg .g img.tl { width: 20px; height: 20px; margin-top: .1rem; }
 @media (max-width: 640px) { .hero { padding: 1.6rem 1.3rem 1.4rem; } .block-container { padding-left: 1rem; padding-right: 1rem; } }
 </style>
 """
@@ -189,12 +262,13 @@ def edition() -> Edition:
     return build()
 
 
-def _league_data(name: str, tables: bool = True, n: int = 10) -> dict:
-    out = {"games": ([], [], []), "tables": {}, "news": [], "quotes": []}
+def _league_data(name: str, tables: bool = True, n: int = 10, ahead: int | None = None) -> dict:
+    out = {"games": ([], [], []), "tables": {}, "news": [], "quotes": [], "logo": ""}
     try:
-        out["games"] = sports.split(sports.scoreboard(name), n=n)
+        out["games"] = sports.split(sports.scoreboard(name), n=n, ahead=ahead)
     except Exception:
         pass
+    out["logo"] = sports.LOGOS.get(name, "")
     if tables:
         try:
             out["tables"] = sports.standings(name)
@@ -210,7 +284,7 @@ def _league_data(name: str, tables: bool = True, n: int = 10) -> dict:
 
 @st.cache_data(ttl=SPORTS_TTL, show_spinner="Getting scores…")
 def league(name: str) -> dict:
-    return _league_data(name)
+    return _league_data(name, n=12, ahead=45)      # a week of fixtures
 
 
 @st.cache_data(ttl=SPORTS_TTL, show_spinner="Getting every league's scores…")
@@ -220,8 +294,8 @@ def overview() -> dict:
 
 
 def markets() -> dict | None:
-    """Purified Water's findings: the plain copy on PHANTOM's own machine, or the sealed copy in the repository,
-    opened with the password typed at the lock screen."""
+    """The market findings: the plain copy on the home machine, or the sealed copy in the repository, opened
+    with the password typed at the lock screen."""
     for f in LOCAL_FILES:
         try:
             return json.loads(f.read_text())
@@ -243,11 +317,9 @@ def markets() -> dict | None:
 
 def no_findings() -> None:
     if SEALED_FILE.exists():
-        st.info("Purified Water's findings are here but sealed with a different password from the one this site uses. "
-                "Use the same password for PRESS_PASSWORD (PHANTOM's .env) and the site.")
+        st.info("The market findings are here but sealed with a different password from the one this site uses.")
     else:
-        st.info("Purified Water's findings arrive with its next run (7:45 AM and 10:30 PM ET), sealed with this site's "
-                "password.")
+        st.info("The market findings arrive with the next nightly run (7:45 AM and 10:30 PM ET).")
 
 
 # ---- pieces ---------------------------------------------------------------------------------
@@ -258,6 +330,10 @@ def esc(text: str) -> str:
 
 def url(link: str) -> str:
     return esc(link) if str(link).startswith(("https://", "http://")) else "#"
+
+
+def img(link: str, cls: str = "", alt: str = "") -> str:
+    return f'<img class="{cls}" src="{url(link)}" alt="{esc(alt)}" loading="lazy">' if str(link).startswith("https://") else ""
 
 
 def ago(when: datetime | None) -> str:
@@ -278,6 +354,11 @@ def first_sentence(text: str, limit: int = 220) -> str:
     return s if len(s) <= limit else s[:limit].rsplit(" ", 1)[0] + "…"
 
 
+def credit(*tools: str) -> str:
+    names = " and ".join(tools)
+    return f"{names}, {'tools' if len(tools) > 1 else 'a tool'} {MADE_BY}, found this."
+
+
 def brand(subtitle: str = "") -> None:
     now = datetime.now(ET)
     st.markdown(CSS + f'<div class="x brand"><div class="name">Stop Looking at my <span>Computer</span> News</div>'
@@ -286,8 +367,14 @@ def brand(subtitle: str = "") -> None:
 
 
 def title(name: str, sub: str = "") -> None:
+    sub = sub or GUIDE.get(name, ("", ""))[1]
     st.markdown(f'<div class="x"><div class="page-title">{esc(name)}</div>'
                 + (f'<div class="page-sub">{esc(sub)}</div>' if sub else "") + "</div>", unsafe_allow_html=True)
+
+
+def attribution(s: Story) -> str:
+    who = f", {s.byline}" if s.byline and s.byline.lower() not in s.source.lower() else ""
+    return f'<span class="cred">— {esc(s.source)}{esc(who)}</span>'
 
 
 def card(s: Story, lead: bool = False, picture: bool = True) -> None:
@@ -295,16 +382,18 @@ def card(s: Story, lead: bool = False, picture: bool = True) -> None:
     chip = (f'<span class="chip">Reported by {n} outlets</span>' if n > 1 else '<span class="chip one">One source</span>')
     if s.source in PAYWALLED:
         chip += '<span class="chip pay">Subscription</span>'
-    img = f'<a href="{url(s.url)}" target="_blank"><img class="img" loading="lazy" src="{url(s.image)}" alt=""></a>' \
+    pic = f'<a href="{url(s.url)}" target="_blank"><img class="img" loading="lazy" src="{url(s.image)}" alt=""></a>' \
         if picture and s.image else ""
     check = ""
     if len(s.links) > 1:
         check = '<div class="check">Check it: ' + " · ".join(
             f'<a href="{url(link)}" target="_blank">{esc(src)}</a>' for src, link in s.links) + "</div>"
-    st.markdown(f'<div class="x card{" lead" if lead else ""}">{img}<div class="in"><div class="meta-row">'
-                f'<span class="src">{esc(s.source)}</span><span>{esc(ago(s.published))}</span>{chip}</div>'
-                f'<h3><a href="{url(s.url)}" target="_blank">{esc(s.title)}</a></h3>'
-                f'<p class="sum">{esc(s.summary)}</p>{check}</div></div>', unsafe_allow_html=True)
+    by = f"<span>By {esc(s.byline)}</span>" if s.byline and s.byline.lower() not in s.source.lower() else ""
+    summary = f'<p class="sum">{esc(s.summary)}</p>' if s.summary else ""
+    st.markdown(f'<div class="x card{" lead" if lead else ""}">{pic}<div class="in"><div class="meta-row">'
+                f'<span class="src">{esc(s.source)}</span>{by}<span>{esc(ago(s.published))}</span>{chip}</div>'
+                f'<h3><a href="{url(s.url)}" target="_blank">{esc(s.title)}</a></h3>{summary}{check}</div></div>',
+                unsafe_allow_html=True)
     if s.body:
         with st.expander("Read it here"):
             paras = "".join(f"<p>{esc(p)}</p>" for p in s.body.split("\n\n"))
@@ -322,15 +411,15 @@ def grid(stories: list[Story], cols: int = 3, pictures: bool = True) -> None:
 
 
 def briefing(heading_text: str, stories: list[Story]) -> None:
-    """The top stories as a numbered list: headline, how many outlets, and the first sentence of the summary."""
+    """The top stories as a numbered list: headline, how many outlets, what happened, and who reported it."""
     if not stories:
         return
     items = []
     for s in stories:
         n = outlets(s)
-        chip = f'<span class="chip">{n} outlets</span>' if n > 1 else f'<span class="chip one">{esc(s.source)}</span>'
-        items.append(f'<li><a href="{url(s.url)}" target="_blank"><b>{esc(s.title)}</b></a> {chip}'
-                     f'<div>{esc(first_sentence(s.summary))}</div></li>')
+        chip = f' <span class="chip">{n} outlets</span>' if n > 1 else ""
+        items.append(f'<li><a href="{url(s.url)}" target="_blank"><b>{esc(s.title)}</b></a>{chip}'
+                     f'<div>{esc(first_sentence(s.summary, 260))} {attribution(s)}</div></li>')
     st.markdown(f'<div class="x brief"><h4>{esc(heading_text)}</h4><ol>{"".join(items)}</ol></div>', unsafe_allow_html=True)
 
 
@@ -338,9 +427,9 @@ def heading(text: str, note: str = "") -> None:
     st.markdown(f'<div class="x section-h"><h2>{esc(text)}</h2><span>{esc(note)}</span></div>', unsafe_allow_html=True)
 
 
-def box(heading_text: str, lines: list[str]) -> None:
+def box(heading_text: str, lines: list[str], cls: str = "") -> None:
     if lines:
-        st.markdown(f'<div class="x box"><h4>{esc(heading_text)}</h4><ul>' + "".join(f"<li>{line}</li>" for line in lines)
+        st.markdown(f'<div class="x box {cls}"><h4>{esc(heading_text)}</h4><ul>' + "".join(f"<li>{line}</li>" for line in lines)
                     + "</ul></div>", unsafe_allow_html=True)
 
 
@@ -368,9 +457,10 @@ def li_button() -> str:
 def footer(e: Edition | None = None) -> None:
     src = f" Sources today: {esc(', '.join(e.sources))}." if e else ""
     who = f'<div class="who"><span><b>{esc(NAME)}</b> · put together by {esc(AUTHOR)}</span>{li_button()}</div>'
-    st.markdown(f'<div class="x foot">{who}Headlines, summaries and pictures belong to their publishers, and every story links '
-                f'to the original; "Reported by" counts the separate outlets carrying the same story, each one linked.'
-                f'{src} Nothing here is written or rewritten by AI. A personal reading page, not a product or service.</div>',
+    st.markdown(f'<div class="x foot">{who}Headlines, summaries and pictures belong to their publishers, and every summary '
+                f'names its outlet and links to the original; "Reported by" counts the separate outlets carrying the same '
+                f'story, each one linked. Stories about violence, crime and arrests are left out on purpose.{src} Nothing here '
+                f'is written or rewritten by AI. A personal reading page, not a product or service.</div>',
                 unsafe_allow_html=True)
 
 
@@ -379,7 +469,23 @@ def go_to(page: str, label: str) -> None:
         st.page_link(PAGES[page], label=label, icon=":material/arrow_forward:")
 
 
-# ---- Purified Water's findings ------------------------------------------------------------
+def guide() -> None:
+    """Every page, what it has, and a button to it."""
+    if not PAGES:
+        return
+    heading("Find your way around", "Every page is also in the blue bar at the top")
+    names = [n for n in GUIDE if n != "Front page"]
+    for i in range(0, len(names), 5):
+        cols = st.columns(5, gap="small")
+        for col, name in zip(cols, names[i:i + 5]):
+            key = {"Sports": "sports", "Markets": "markets"}.get(name, name)
+            with col:
+                if key in PAGES:
+                    st.page_link(PAGES[key], label=name, icon=GUIDE[name][0])
+                st.markdown(f'<div class="x guide-d">{esc(GUIDE[name][1])}</div>', unsafe_allow_html=True)
+
+
+# ---- the market findings ------------------------------------------------------------------
 
 def _num(v, kind: str = "price") -> str:
     if v is None:
@@ -393,23 +499,32 @@ def tile(label: str, value: str, sub: str) -> str:
     return f'<div class="tile"><div class="l">{esc(label)}</div><div class="v">{value}</div><div class="s">{sub}</div></div>'
 
 
+TILE_NAMES = {"S&P 500": "Stock market (S&P 500)", "Fear gauge (VIX)": "Investor fear (VIX)",
+              "10-year Treasury yield": "Mortgage-rate driver (10-yr Treasury)", "Oil (WTI, $ a barrel)": "Oil, $ a barrel",
+              "Dollar vs trading partners": "The dollar vs other currencies"}
+
+
 def market_tiles(m: dict, names: tuple[str, ...]) -> str:
     by = {r["market"]: r for r in m["markets"]}
+    plain = m.get("plain", {})
     out = []
     for name in names:
         if name == "chain":
-            out.append(tile("Credit-crisis chain", f'{m["level"]} of 4', "links switched on"))
+            out.append(tile("Debt-crisis check", esc(plain.get("chain", f'{m["level"]} of 4')),
+                            f'{m["level"]} of 4 warning signs on'))
         elif (r := by.get(name)):
             value = f'{r["last"]:.2f}%' if r["kind"] == "rate" else f'{r["last"]:,.2f}' if r["last"] < 100 else f'{r["last"]:,.0f}'
-            out.append(tile(name, value, f'{_num(r["day"], r["kind"])} today · {_num(r["month"], r["kind"])} in a month'))
+            sub = {"Fear gauge (VIX)": plain.get("vix"), "10-year Treasury yield": plain.get("rates")}.get(name)
+            sub = esc(sub) if sub else f'{_num(r["day"], r["kind"])} on the day · {_num(r["month"], r["kind"])} this month'
+            out.append(tile(TILE_NAMES.get(name, name), value, sub))
     return '<div class="tiles">' + "".join(out) + "</div>"
 
 
-def findings_panel(m: dict, heading_text: str, tiles: tuple[str, ...], lines: list[str]) -> None:
-    st.markdown(f'<div class="x panel"><div class="top"><b>{esc(heading_text)}</b><span>Purified Water · data as of '
-                f'{esc(m.get("as_of", ""))}</span></div><div class="body">{market_tiles(m, tiles) if tiles else ""}'
+def findings_panel(m: dict, heading_text: str, tiles: tuple[str, ...], lines: list[str], tools: tuple[str, ...]) -> None:
+    st.markdown(f'<div class="x panel"><div class="top"><b>{esc(heading_text)}</b><span>Data as of {esc(m.get("as_of", ""))}'
+                f'</span></div><div class="body">{market_tiles(m, tiles) if tiles else ""}'
                 + ("<ul>" + "".join(f"<li>{esc(line)}</li>" for line in lines) + "</ul>" if lines else "")
-                + "</div></div>", unsafe_allow_html=True)
+                + f'</div></div><div class="x credit">{esc(credit(*tools))}</div>', unsafe_allow_html=True)
 
 
 def sectors_table(rows: list[dict]) -> str:
@@ -422,31 +537,50 @@ def sectors_table(rows: list[dict]) -> str:
             f'<th>Where it sits in its 3-year range</th></tr>{body}</table></div>')
 
 
+def coming_up(m: dict | None, n: int = 9) -> None:
+    """The weeks ahead: Fed decisions, big economic reports, market holidays, the biggest companies' earnings."""
+    events = (m or {}).get("calendar") or []
+    today = datetime.now(ET).date().isoformat()
+    events = [e for e in events if e["date"] >= today]
+    if not events:
+        return
+    firsts = [e for e in events if e["kind"] != "Earnings"][:n]
+    picked = sorted(firsts + [e for e in events if e["kind"] == "Earnings"][:max(n - len(firsts), 3)],
+                    key=lambda e: e["date"])[:n + 3]
+    lines = []
+    for e in picked:
+        d = datetime.fromisoformat(e["date"])
+        lines.append(f'<span class="d">{d:%a, %b} {d.day}</span><span class="k k-{esc(e["kind"])}">{esc(e["kind"])}</span>'
+                     f'{esc(e["what"])}')
+    box("Coming up in the next few weeks", lines, cls="cal")
+
+
 # ---- pages ---------------------------------------------------------------------------------
 
 def front_page() -> None:
     e = edition()
     brand(f"Updated {e.made_at.astimezone(ET).strftime('%I:%M %p').lstrip('0')} ET")
+    title("Today's edition", GUIDE["Front page"][1])
     m = markets()
     if m:
-        findings_panel(m, "The findings that matter today", ("chain", "S&P 500", "Fear gauge (VIX)", "10-year Treasury yield"),
-                       m.get("briefing", [])[1:6])
-        go_to("markets", "All of Purified Water's findings")
+        findings_panel(m, "The economy today, in plain words", ("chain", "S&P 500", "Fear gauge (VIX)", "10-year Treasury yield"),
+                       m.get("briefing", [])[:5], ("Crisis Tracker", "Market Monitor"))
     left, right = st.columns([2.1, 1], gap="large")
     with left:
         if e.lead:
             card(e.lead, lead=True)
     with right:
+        coming_up(m)
         box("What to know", [esc(x) for x in e.must_know])
         social = e.sections.get("Social", [])
         box("Social, in brief", [f'<a href="{url(s.url)}" target="_blank">{esc(s.title)}</a>' for s in social])
-        box("On this day", [esc(h) for h in e.history])
     heading("Top stories", "Ranked by how many outlets carry them and where editors placed them")
     briefing("The briefing", e.front[:BRIEF])
     grid(e.front[BRIEF:], pictures=False)
+    guide()
     for name in ("World", "Politics", "Business & markets", "Technology"):
         if e.sections.get(name):
-            heading(name, "More on its own page above")
+            heading(name, "More on its own page")
             grid(e.sections[name][:3])
     footer(e)
 
@@ -457,20 +591,23 @@ def section_page(name: str):
         brand(name)
         stories = e.sections.get(name, [])
         sources = sorted({s.source for s in stories} | {o for s in stories for o in s.also})
-        title(name, f"{len(stories)} stories from {len(sources)} outlets" if stories else "")
+        count = f" · {len(stories)} stories from {len(sources)} outlets" if stories else ""
+        title(name, GUIDE.get(name, ("", ""))[1] + count)
         m = markets()
         if name == "Business & markets":
             if m:
                 findings_panel(m, "Markets and industries", ("S&P 500", "10-year Treasury yield", "Oil (WTI, $ a barrel)",
-                                                             "Dollar vs trading partners"), m.get("briefing", [])[4:5])
+                                                             "Dollar vs trading partners"),
+                               [x for x in m.get("briefing", []) if x.startswith(("Stocks:", "Winners"))], ("Market Monitor",))
                 if m.get("sectors"):
                     heading("Industries", "Sector funds, best month first")
                     st.markdown(sectors_table(m["sectors"]), unsafe_allow_html=True)
-                go_to("markets", "All of Purified Water's findings")
+                    st.markdown(f'<div class="x credit">{esc(credit("Market Monitor"))}</div>', unsafe_allow_html=True)
+                go_to("markets", "Every market, explained")
             else:
                 no_findings()
         if name == "Science & health" and m and m.get("health"):
-            findings_panel(m, "Health care in the markets", (), m["health"])
+            findings_panel(m, "Health care in the markets", (), m["health"], ("Market Monitor",))
         if not stories:
             st.info("Nothing new here in the last two days.")
         briefing(f"{name}: the briefing", stories[:BRIEF])
@@ -482,28 +619,68 @@ def section_page(name: str):
     return page
 
 
-def game_html(g: sports.Game) -> str:
-    live = g.state == "in"
-    when = g.status if g.state != "pre" else (g.start.astimezone(ET).strftime("%a %b %d · %I:%M %p ET").replace(" 0", " ")
-                                              if g.start else g.status)
-    def row(side):
-        return (f'<div class="row{" win" if side.winner else ""}"><span>{esc(side.name)}'
-                f'<span class="rec">{esc(side.record)}</span></span><span class="sc">{esc(side.score)}</span></div>')
-    stars = f'<div class="stars">{" · ".join(esc(s) for s in g.standouts)}</div>' if g.standouts else ""
-    head = f'<div class="st{" live" if live else ""}">{"● Live · " if live else ""}{esc(when)}' \
-           f'{" · " + esc(g.event) if g.event else ""}</div>'
-    link = f'<div class="stars"><a href="{url(g.link)}" target="_blank" style="color:var(--accent)">Box score</a></div>' if g.link else ""
-    return f'<div class="x game">{head}{row(g.away)}{row(g.home)}{stars}{link}</div>'
+# ---- sports ---------------------------------------------------------------------------------
+
+def _when(g: sports.Game) -> str:
+    start = g.start.astimezone(ET) if g.start else None
+    if g.state == "pre":
+        return f"{start:%a, %b} {start.day} · {start:%I:%M %p}".replace(" 0", " ") + " ET" if start else g.status
+    if g.state == "in":
+        return f"● Live · {g.status}"
+    return f"{g.status} · {start:%a, %b} {start.day}" if start else g.status
+
+
+def _soccer(g: sports.Game) -> bool:
+    return sports.LEAGUES[g.league][1] == "soccer"
+
+
+def game_card(g: sports.Game) -> str:
+    """One game: teams with logos, scores by period, ESPN's recap, the top performers with photos."""
+    a, b = (g.home, g.away) if _soccer(g) else (g.away, g.home)
+    pa, pb = (g.periods[1], g.periods[0]) if g.periods and _soccer(g) else (g.periods or ([], []))
+    def row(side, per):
+        return (f'<div class="row{" win" if side.winner else ""}">{img(side.logo) or "<span></span>"}'
+                f'<span>{esc(side.name)}<span class="rec">{esc(side.record)}</span></span>'
+                f'<span class="per">{esc(" ".join(per)) if g.state != "pre" else ""}</span>'
+                f'<span class="sc">{esc(side.score) if g.state != "pre" else ""}</span></div>')
+    recap = ""
+    if g.recap_title or g.recap:
+        text = g.recap.replace("...", "…")
+        recap = f'<div class="recap"><b>{esc(g.recap_title)}</b>{esc(text)} <span class="cred">— ESPN recap</span></div>'
+    stars = ""
+    if g.standouts and g.state != "pre":
+        faces = g.faces + [""] * len(g.standouts)
+        stars = '<div class="stars">' + "".join(
+            f'<span class="star">{img(f) or ""}{esc(s)}</span>' for s, f in zip(g.standouts[:4], faces)) + "</div>"
+    label = "Preview" if g.state == "pre" else "Box score"
+    link = f'<div class="links"><a href="{url(g.link)}" target="_blank">{label} on ESPN</a></div>' if g.link else ""
+    venue = f'<span class="venue">{esc(g.venue)}</span>' if g.venue else ""
+    event = f'<span class="venue">{esc(g.event)}</span>' if g.event else ""
+    cls = {"in": " live", "pre": " pre"}.get(g.state, "")
+    return (f'<div class="x gc{cls}"><div class="top"><span class="when">{esc(_when(g))}</span>{venue}{event}</div>'
+            f'{row(a, pa)}{row(b, pb)}{recap}{stars}{link}</div>')
+
+
+def by_day(games: list[sports.Game]) -> str:
+    """Upcoming games under a date heading for each day."""
+    out, last = [], None
+    for g in games:
+        d = g.start.astimezone(ET).date() if g.start else None
+        if d != last:
+            out.append(f'<div class="x day">{d:%A, %B} {d.day}</div>' if d else '<div class="x day">Date to be set</div>')
+            last = d
+        out.append(game_card(g))
+    return "".join(out)
 
 
 def game_line(g: sports.Game) -> str:
-    """One line per game for the all-sports view."""
-    soccer = sports.LEAGUES[g.league][1] == "soccer"
+    """One line per game for the all-sports view, with team logos and a date."""
+    soccer = _soccer(g)
+    logo = img(g.home.logo if soccer else g.away.logo, "tl")
     if g.state == "pre":
-        when = g.start.astimezone(ET).strftime("%a %I:%M %p").replace(" 0", " ") if g.start else g.status
         a, b = (g.home, g.away) if soccer else (g.away, g.home)
         text = f'{esc(a.name)} {"v" if soccer else "at"} {esc(b.name)}'
-        sub = esc(when + (" · " + g.event if g.event else ""))
+        sub = esc(_when(g) + (" · " + g.event if g.event else ""))
     elif g.event:      # tennis: winner first, sets as 6-4 7-5
         w, l = (g.away, g.home) if g.away.winner else (g.home, g.away)
         sets = " ".join(f"{x}-{y}" for x, y in zip(w.score.split(), l.score.split()))
@@ -513,12 +690,14 @@ def game_line(g: sports.Game) -> str:
         a, b = (g.home, g.away) if soccer else (g.away, g.home)
         name = lambda s: f"<b>{esc(s.name)}</b>" if s.winner else esc(s.name)
         text = f'{name(a)} {esc(a.score)} – {esc(b.score)} {name(b)}'
-        sub = esc(("● Live · " + g.status) if g.state == "in" else g.status)
-        if g.standouts:
+        sub = esc(_when(g))
+        if g.recap_title:
+            sub += f'<br><span style="color:var(--soft)">{esc(g.recap_title)}</span>'
+        elif g.standouts:
             sub += " · " + esc(" · ".join(g.standouts[:2]))
     label = "preview" if g.state == "pre" else "box score"
     link = f' · <a href="{url(g.link)}" target="_blank" style="color:var(--accent)">{label}</a>' if g.link else ""
-    return f'<div class="g">{text}<small>{sub}{link}</small></div>'
+    return f'<div class="g">{logo}<div class="tx">{text}<small>{sub}{link}</small></div></div>'
 
 
 def table_html(rows: list[dict]) -> str:
@@ -536,20 +715,21 @@ def all_sports() -> None:
         live, done, upcoming = d["games"]
         news = [s for s in d["news"] if s.url not in seen][:3]
         seen.update(s.url for s in news)
-        parts = [f'<h3>{esc(name)}</h3>']
+        counts = f"{len(done)} results · {len(upcoming)} coming up" if (done or upcoming) else ""
+        logo = f'<span class="lgo">{img(d.get("logo", ""))}</span>' if d.get("logo") else ""
+        parts = [f'<div class="lh">{logo}<b>{esc(name)}</b><span>{esc(counts)}</span></div>']
         if live:
             parts += ['<div class="k">Live now</div>'] + [game_line(g) for g in live[:3]]
         if done:
             parts += ['<div class="k">Latest results</div>'] + [game_line(g) for g in done[:3]]
         if upcoming:
-            parts += ['<div class="k">Coming up</div>'] + [game_line(g) for g in upcoming[:2]]
+            parts += ['<div class="k">Coming up</div>'] + [game_line(g) for g in upcoming[:3]]
         if news:
             parts += ['<div class="k">The latest</div>'] + [
                 f'<div class="n"><a href="{url(s.url)}" target="_blank">{esc(s.title)}</a>'
-                f'<div>{esc(first_sentence(s.summary, 160))} <span style="color:var(--muted)">· {esc(s.source)}</span></div></div>'
-                for s in news]
+                f'<div>{esc(first_sentence(s.summary, 160))} {attribution(s)}</div></div>' for s in news]
         if len(parts) == 1:
-            parts.append('<div class="g"><small>Nothing in the last two days or the next few.</small></div>')
+            parts.append('<div class="g"><small>Nothing in the last two days or the week ahead.</small></div>')
         panels.append(f'<div class="x lg">{"".join(parts)}</div>')
     cols = st.columns(2, gap="medium")
     for i, p in enumerate(panels):
@@ -559,7 +739,7 @@ def all_sports() -> None:
 
 def sports_page() -> None:
     brand("Sports")
-    title("Sports", "What happened, who stood out, what people said and what's next. Every score links to its box score.")
+    title("Sports", GUIDE["Sports"][1] + ". Pick a league below, or see them all at once.")
     choice = st.segmented_control("League", [ALL_SPORTS, *sports.LEAGUES], default=ALL_SPORTS,
                                   label_visibility="collapsed") or ALL_SPORTS
     if choice == ALL_SPORTS:
@@ -568,22 +748,25 @@ def sports_page() -> None:
         return
     data = league(choice)
     live, done, upcoming = data["games"]
+    logo = f'<span class="lgo">{img(data.get("logo", ""))}</span>' if data.get("logo") else ""
+    st.markdown(f'<div class="x banner">{logo}<div><b>{esc(choice)}</b><span>{len(live)} live · {len(done)} recent results · '
+                f'{len(upcoming)} games in the week ahead</span></div></div>', unsafe_allow_html=True)
     briefing(f"{choice}: the latest", data["news"][:BRIEF])
     a, b = st.columns([1.35, 1], gap="large")
     with a:
         if live:
             heading("Live now")
-            st.markdown("".join(game_html(g) for g in live), unsafe_allow_html=True)
-        heading("Results", "Newest first, with top performers")
-        st.markdown("".join(game_html(g) for g in done) or '<div class="x box">No recent results.</div>', unsafe_allow_html=True)
-        heading("Coming up")
-        st.markdown("".join(game_html(g) for g in upcoming) or '<div class="x box">Nothing scheduled in the next few days.</div>',
-                    unsafe_allow_html=True)
+            st.markdown("".join(game_card(g) for g in live), unsafe_allow_html=True)
+        heading("Results", "Newest first, with ESPN's recap and the top performers")
+        st.markdown("".join(game_card(g) for g in done) or '<div class="x box">No recent results.</div>', unsafe_allow_html=True)
+        heading("Coming up", "The week ahead, by day (Eastern time)")
+        st.markdown(by_day(upcoming) or '<div class="x box">Nothing scheduled in the week ahead.</div>', unsafe_allow_html=True)
     with b:
         if data["quotes"]:
-            heading("What people said")
-            st.markdown("".join(f'<div class="x quote">“{esc(q)}”<a href="{url(s.url)}" target="_blank">{esc(s.source)} · '
-                                f'{esc(s.title)}</a></div>' for q, s in data["quotes"]), unsafe_allow_html=True)
+            heading("What people said", "Word for word, with who said it")
+            st.markdown("".join(f'<div class="x quote">“{esc(q)}”<a href="{url(s.url)}" target="_blank"><b>{esc(who)}</b>, '
+                                f'quoted by {esc(s.source)}: {esc(s.title)}</a></div>' for q, who, s in data["quotes"]),
+                        unsafe_allow_html=True)
         for group, rows in data["tables"].items():
             heading(group)
             st.markdown(table_html(rows), unsafe_allow_html=True)
@@ -595,19 +778,20 @@ def sports_page() -> None:
 
 def markets_page() -> None:
     brand("Markets")
-    title("Markets", "Purified Water's findings, compared with the last three years. Public market data only: nothing "
-                     "about any account or trade.")
+    title("Markets", GUIDE["Markets"][1] + ". Public market data only: nothing about any account or trade.")
     m = markets()
     if not m:
         no_findings()
         footer()
         return
-    findings_panel(m, "The findings that matter today", ("chain", "S&P 500", "Fear gauge (VIX)", "10-year Treasury yield"),
-                   m.get("briefing", []))
+    findings_panel(m, "The economy today, in plain words", ("chain", "S&P 500", "Fear gauge (VIX)", "10-year Treasury yield"),
+                   m.get("briefing", []), ("Crisis Tracker", "Market Monitor"))
+    coming_up(m, n=14)
     st.markdown('<div class="x">' + "".join(f'<span class="pill{" on" if l["on"] else ""}">{esc(l["link"])}: '
                                          f'{"on" if l["on"] else "off"}</span>' for l in m["links"]) + "</div>",
                 unsafe_allow_html=True)
-    box("What the crisis tracker says", [esc(line) for line in m["summary"]])
+    box("Crisis Tracker's notes", [esc(line) for line in m["summary"]])
+    st.markdown(f'<div class="x credit">{esc(credit("Crisis Tracker"))}</div>', unsafe_allow_html=True)
     heading("Every market against its last three years")
     rows = "".join(
         f'<tr><td>{esc(r["market"])}</td><td>{r["last"]:,}</td><td>{_num(r["day"], r["kind"])}</td><td>{_num(r["month"], r["kind"])}</td>'
@@ -616,17 +800,20 @@ def markets_page() -> None:
         f'{r["low_3y"]:,} to {r["high_3y"]:,}</div></td><td style="color:var(--muted);font-size:.75rem">{esc(r["as_of"])}</td></tr>'
         for r in m["markets"])
     st.markdown('<div class="tw"><table class="x t"><tr><th>Market</th><th>Latest</th><th>Day</th><th>Month</th><th>Year</th>'
-                f'<th>3 years</th><th>Where it sits in its 3-year range</th><th>As of</th></tr>{rows}</table></div>',
-                unsafe_allow_html=True)
+                f'<th>3 years</th><th>Where it sits in its 3-year range</th><th>As of</th></tr>{rows}</table></div>'
+                f'<div class="x credit">{esc(credit("Market Monitor"))}</div>', unsafe_allow_html=True)
     if m.get("sectors"):
         heading("Industries", "Sector funds, best month first")
-        st.markdown(sectors_table(m["sectors"]), unsafe_allow_html=True)
+        st.markdown(sectors_table(m["sectors"]) + f'<div class="x credit">{esc(credit("Market Monitor"))}</div>',
+                    unsafe_allow_html=True)
     v = m.get("valuation")
     if v:
         heading("How expensive stocks are")
-        box("Price over ten years of earnings (CAPE)",
+        box("Price over ten years of profits (the CAPE ratio)",
             [f"Now {v['now']}; a year ago {v['year_ago']}; three years ago {v['three_years_ago']}.",
-             f"Three-year range: {v['low_3y']} to {v['high_3y']}.", esc(v["what"]) + "."])
+             f"Three-year range: {v['low_3y']} to {v['high_3y']}.",
+             "Higher means investors are paying more for each dollar of profit, which leaves more room to fall."])
+        st.markdown(f'<div class="x credit">{esc(credit("Bubble Watch"))}</div>', unsafe_allow_html=True)
     st.caption(esc(m.get("note", "")) + f" Built {esc(m.get('made_at', ''))}.")
     footer()
 
@@ -649,13 +836,13 @@ def password_ok() -> bool:
     brand("Private edition")
     left, right = st.columns([1.45, 1], gap="large", vertical_alignment="center")
     with left:
-        inside = (("Front page", "The day's top stories, ranked by how many outlets carry them"),
+        inside = (("Front page", "Top stories, the economy in plain words, and what's coming up"),
                   ("Sections", "World, Politics, Business, Technology, Science & health, Ideas, Entertainment"),
-                  ("Sports", "Every league at a glance: results, top performers, quotes, what's next"),
-                  ("Markets", "Purified Water's findings against the last three years"))
+                  ("Sports", "Recaps, scores, top performers and a week of upcoming games"),
+                  ("Markets", "The economy's vital signs, from tools Neiil built"))
         st.markdown(f'<div class="x hero"><div class="eyebrow">Private edition · {now:%A, %B} {now.day}</div>'
-                    f'<h1>{esc(NAME)}</h1><p>The day\'s news from free sources, checked against each other, with the '
-                    'full article where the publisher allows it, and Purified Water\'s market findings.</p>'
+                    f'<h1>{esc(NAME)}</h1><p>The day\'s news from free sources, checked against each other, without the '
+                    'grim noise, plus the economy explained in plain words.</p>'
                     '<div class="grid">' + "".join(f"<div><b>{esc(t)}</b><span>{esc(s)}</span></div>" for t, s in inside)
                     + f'</div><div class="by"><span>Put together by {esc(AUTHOR)}</span>{li_button()}</div></div>',
                     unsafe_allow_html=True)
@@ -681,11 +868,12 @@ def password_ok() -> bool:
 def main() -> None:
     if not password_ok():
         return
-    PAGES["front"] = st.Page(front_page, title="Front page", url_path="front", default=True)
+    PAGES["front"] = st.Page(front_page, title="Front page", url_path="front", default=True, icon="🗞️")
     for name in NAV_SECTIONS:
-        PAGES[name] = st.Page(section_page(name), title=name, url_path=name.lower().replace(" & ", "-").replace(" ", "-"))
-    PAGES["sports"] = st.Page(sports_page, title="Sports", url_path="sports")
-    PAGES["markets"] = st.Page(markets_page, title="Markets", url_path="markets")
+        PAGES[name] = st.Page(section_page(name), title=name, url_path=name.lower().replace(" & ", "-").replace(" ", "-"),
+                              icon=GUIDE.get(name, ("", ""))[0] or None)
+    PAGES["sports"] = st.Page(sports_page, title="Sports", url_path="sports", icon="🏅")
+    PAGES["markets"] = st.Page(markets_page, title="Markets", url_path="markets", icon="📈")
     st.navigation(list(PAGES.values()), position="top").run()
 
 
