@@ -39,7 +39,7 @@ FULL_TEXT_LICENCE = {
 # Titles that are noise, not news.
 JUNK = re.compile(r"\b(quiz|crossword|wordle|sudoku|horoscope|puzzle|deals?|discount|gift guide|recipe|shopping|"
                   r"photos? of the (day|week)|what to watch|how to watch|live updates|as it happened|podcast|"
-                  r"newsletter|sponsored|giveaway|coupon|red carpet|outfit|bikini|wardrobe|wait wait|not my job)\b|– live$|- live$", re.I)
+                  r"newsletter|sponsored|giveaway|coupon|red carpet|outfit|bikini|wardrobe|wait wait|not my job)\b|– live$|- live$|, live$", re.I)
 
 
 # Negative noise the paper leaves out (the reader's rule): violence and death, crime and arrests, immigration
@@ -70,11 +70,25 @@ SPEAKER_VOICE = re.compile(r"\b(I|I'm|I’m|I've|I’ve|I'd|I’d|I'll|I’ll|me
 SUMMARY_LIMIT = 300
 
 
+_ABBREV = re.compile(r"\b(vs|Mr|Mrs|Ms|Dr|St|No|Jr|Sr|Gov|Sen|Rep|Gen|Lt|Sgt|Inc|Corp|Co|Ltd|U\.S|U\.K|a\.m|p\.m|[A-Z])\.$")
+
+
+def sentences(text: str) -> list[str]:
+    """Split into sentences without breaking after abbreviations like "vs." or "U.S."."""
+    out = []
+    for piece in re.split(r"(?<=[.!?”\"’])\s+(?=[A-Z“\"‘(])", text or ""):
+        if out and _ABBREV.search(out[-1]):
+            out[-1] = f"{out[-1]} {piece}"
+        else:
+            out.append(piece)
+    return [s for s in out if s]
+
+
 def tidy(text: str) -> str:
     text = BOILER.sub("", text or "").strip()
     if not text:
         return ""
-    parts = re.split(r"(?<=[.!?”\"’])\s+(?=[A-Z“\"‘(])", text)
+    parts = sentences(text)
     if text.endswith(("…", "...")) and len(parts) > 1:      # cut off mid-sentence: drop the fragment
         parts = parts[:-1]
     out = ""
@@ -104,11 +118,20 @@ class Story:
     links: list[tuple[str, str]] = field(default_factory=list)        # (outlet, link) for each of them
 
     def __post_init__(self):
-        self.summary = tidy(self.summary)
+        self.title = nodash(self.title)
+        self.summary = nodash(tidy(self.summary))
         # a summary that only repeats the headline says nothing: drop that sentence
         lead = re.split(r"(?<=[.!?])\s+", self.summary, maxsplit=1)
         if self.summary and _same_words(lead[0], self.title):
             self.summary = lead[1] if len(lead) > 1 else ""
+
+
+def nodash(text: str) -> str:
+    """The paper uses no dashes: a dash between numbers becomes a hyphen (6–4 to 6-4), any other dash a comma."""
+    text = re.sub(r"(?<=\d)\s*[–—]\s*(?=\d)", "-", text or "")
+    text = re.sub(r"\s*[—–]\s*|\s+-\s+", ", ", text)
+    text = re.sub(r"(,\s*){2,}", ", ", text)
+    return re.sub(r"^,\s*|,\s*$", "", text).replace(" ,", ",").strip()
 
 
 def _same_words(a: str, b: str) -> bool:
@@ -420,7 +443,7 @@ def in_the_news() -> list[str]:
     block = text.split("Ongoing")[0]
     items = [re.sub(r"\s+\((pictured|rendering shown|shown)\)", "", _clean(i, 400))
              for i in re.findall(r"<li>(.*?)</li>", block, re.S)]
-    return [i for i in items if not grim(i)][:6]
+    return [nodash(i) for i in items if not grim(i)][:6]
 
 
 def on_this_day(day: date | None = None, n: int = 4) -> list[str]:

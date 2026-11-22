@@ -34,7 +34,7 @@ sys.path.insert(0, str(ROOT))   # so `press` imports when run as a script
 
 from press import sports  # noqa: E402
 from press.edition import Edition, build, outlets  # noqa: E402
-from press.feeds import FULL_TEXT_LICENCE, PAYWALLED, SECTIONS, Story  # noqa: E402
+from press.feeds import FULL_TEXT_LICENCE, PAYWALLED, SECTIONS, Story, nodash, sentences  # noqa: E402
 from press.lock import matches  # noqa: E402
 
 NAME = "Stop Looking at my Computer News"
@@ -50,16 +50,16 @@ ALL_SPORTS = "All sports"
 PAGES: dict = {}
 MADE_BY = "Neiil built and developed for critical economy insights"
 GUIDE = {   # what each page has, shown on the front page and under each page's title
-    "Front page": ("🗞️", "Today's top stories, the economy in plain words, and what's coming up in the weeks ahead"),
-    "World": ("🌍", "Major events in other countries: diplomacy, elections, economies"),
-    "Politics": ("🏛️", "US government: Congress, the White House, courts and elections"),
-    "Business & markets": ("💼", "Companies, the economy, and how every industry's shares are doing"),
-    "Technology": ("💡", "Tech companies, AI, gadgets and the internet"),
-    "Science & health": ("🔬", "Discoveries, medicine, climate, and health-care shares"),
-    "Ideas": ("📚", "Essays and explainers worth your time"),
-    "Entertainment": ("🎬", "Movies, music, books, art and TV"),
-    "Sports": ("🏅", "Recaps, scores, top performers, quotes and a week of upcoming games for every major league"),
-    "Markets": ("📈", "The economy's vital signs, explained, and every market against its last three years"),
+    "Front page": ("", "Today's top stories, the economy in plain words, and what's coming up in the weeks ahead"),
+    "World": ("", "Major events in other countries: diplomacy, elections, economies"),
+    "Politics": ("", "US government: Congress, the White House, courts and elections"),
+    "Business & markets": ("", "Companies, the economy, and how every industry's shares are doing"),
+    "Technology": ("", "Tech companies, AI, gadgets and the internet"),
+    "Science & health": ("", "Discoveries, medicine, climate, and health-care shares"),
+    "Ideas": ("", "Essays and explainers worth your time"),
+    "Entertainment": ("", "Movies, music, books, art and TV"),
+    "Sports": ("", "Recaps, scores, top performers, quotes and a week of upcoming games for every major league"),
+    "Markets": ("", "The economy's vital signs, explained, and every market against its last three years"),
 }
 
 st.set_page_config(page_title=NAME, page_icon="🗞️", layout="wide", initial_sidebar_state="collapsed")
@@ -70,23 +70,25 @@ CSS = """
 :root { --bg:#f4f6f9; --card:#ffffff; --ink:#0b1b33; --soft:#3e4c63; --muted:#7b879a; --line:#e2e7ef;
         --accent:#1d4f91; --sky:#8fb3e3; --navy:#0a2342; --good:#0e7a4e; --bad:#c0392b; --chip:#e8eef8; }
 .stApp, [data-testid="stAppViewContainer"] { background: var(--bg); }
-[data-testid="stHeader"] { background: linear-gradient(90deg, #071a33, #0d2e58 60%, #16427a); border-bottom: 3px solid var(--sky); }
+[data-testid="stHeader"] { background: #0a2342; }
 [data-testid="stHeader"] [data-testid="stToolbar"] button, [data-testid="stHeader"] svg { color: #fff !important; fill: #fff !important; }
-[data-testid="stTopNavLink"] { background: rgba(255,255,255,.10); border-radius: 999px; padding: .32rem .85rem !important; margin: 0 .12rem;
-  border: 1px solid rgba(255,255,255,.18); transition: background .15s; }
-[data-testid="stTopNavLink"], [data-testid="stTopNavLink"] * { color: #e9f0fb !important; font-weight: 600 !important; font-size: .86rem !important; }
-[data-testid="stTopNavLink"]:hover { background: rgba(255,255,255,.22); }
-[data-testid="stTopNavLink"][aria-current="page"] { background: #fff; border-color: #fff; }
-[data-testid="stTopNavLink"][aria-current="page"], [data-testid="stTopNavLink"][aria-current="page"] * { color: #0a2342 !important; }
-[data-testid="stTopNavSection"], [data-testid="stTopNavSection"] * { color: #fff !important; font-weight: 600; }
-[data-testid="stBaseButton-segmented_control"] { background: #e3ecf9 !important; border: 1px solid #c3d4ee !important; }
-[data-testid="stBaseButton-segmented_control"], [data-testid="stBaseButton-segmented_control"] * { color: #1d4f91 !important; font-weight: 600 !important; }
-[data-testid="stBaseButton-segmented_control"]:hover { background: #cfdef5 !important; }
-[data-testid="stBaseButton-segmented_controlActive"] { background: #0a2342 !important; border: 1px solid #0a2342 !important; }
-[data-testid="stBaseButton-segmented_controlActive"], [data-testid="stBaseButton-segmented_controlActive"] * { color: #fff !important; font-weight: 700 !important; }
-[data-testid="stPageLink"] a { background: #e8eef8; border: 1px solid #c9d7ee; border-radius: 10px; padding: .35rem .7rem; }
-[data-testid="stPageLink"] a:hover { background: #d6e3f6; }
-[data-testid="stPageLink"] a * { color: #0a2342 !important; font-weight: 700 !important; }
+[data-testid="stTopNavLink"] { background: none !important; border-radius: 0; padding: .35rem .7rem !important; margin: 0;
+  border-bottom: 3px solid transparent; }
+[data-testid="stTopNavLink"], [data-testid="stTopNavLink"] * { color: #ffffff !important; font-weight: 600 !important; font-size: .9rem !important; }
+[data-testid="stTopNavLink"]:hover { border-bottom-color: rgba(255,255,255,.5); }
+[data-testid="stTopNavLink"][aria-current="page"] { border-bottom-color: #ffffff; }
+[data-testid="stTopNavLink"][aria-current="page"], [data-testid="stTopNavLink"][aria-current="page"] * { font-weight: 800 !important; }
+[data-testid="stTopNavSection"], [data-testid="stTopNavSection"] * { color: #ffffff !important; font-weight: 600; }
+button[data-variant="segmented_control"], button[kind="segmented_control"] { background: #1d4f91 !important;
+  border: 1px solid #ffffff !important; opacity: 1 !important; }
+button[data-variant="segmented_control"], button[data-variant="segmented_control"] *,
+button[kind="segmented_control"], button[kind="segmented_control"] * { color: #ffffff !important; font-weight: 600 !important; }
+button[data-variant="segmented_control"]:hover { background: #163f75 !important; }
+button[data-variant="segmented_control"][aria-checked="true"], button[kind="segmented_controlActive"] { background: #0a2342 !important;
+  border: 1px solid #0a2342 !important; box-shadow: inset 0 -3px 0 #8fb3e3 !important; }
+button[data-variant="segmented_control"][aria-checked="true"] *, button[kind="segmented_controlActive"] * { font-weight: 800 !important; }
+[data-testid="stPageLink"] a { padding: .1rem 0; }
+[data-testid="stPageLink"] a * { color: #0a2342 !important; font-weight: 700 !important; text-decoration: underline; }
 .block-container { max-width: 1240px; padding-top: 3.8rem; padding-bottom: 4rem; }
 html, body, .x, .x p, .x li, .x td { font-family: Inter, -apple-system, Segoe UI, sans-serif; color: var(--ink); }
 .x a { color: inherit; text-decoration: none; }
@@ -349,8 +351,10 @@ def ago(when: datetime | None) -> str:
 
 def first_sentence(text: str, limit: int = 220) -> str:
     text = " ".join((text or "").split())
-    m = re.match(r"(.{40,}?[.!?])(\s|$)", text)
-    s = m.group(1) if m else text
+    parts = sentences(text)
+    s, i = (parts[0] if parts else text), 1
+    while len(s) < 40 and i < len(parts):        # a very short first sentence takes the next one with it
+        s, i = f"{s} {parts[i]}", i + 1
     return s if len(s) <= limit else s[:limit].rsplit(" ", 1)[0] + "…"
 
 
@@ -374,7 +378,7 @@ def title(name: str, sub: str = "") -> None:
 
 def attribution(s: Story) -> str:
     who = f", {s.byline}" if s.byline and s.byline.lower() not in s.source.lower() else ""
-    return f'<span class="cred">— {esc(s.source)}{esc(who)}</span>'
+    return f'<span class="cred">(via {esc(s.source)}{esc(who)})</span>'
 
 
 def card(s: Story, lead: bool = False, picture: bool = True) -> None:
@@ -466,7 +470,7 @@ def footer(e: Edition | None = None) -> None:
 
 def go_to(page: str, label: str) -> None:
     if page in PAGES:
-        st.page_link(PAGES[page], label=label, icon=":material/arrow_forward:")
+        st.page_link(PAGES[page], label=label)
 
 
 def guide() -> None:
@@ -481,7 +485,7 @@ def guide() -> None:
             key = {"Sports": "sports", "Markets": "markets"}.get(name, name)
             with col:
                 if key in PAGES:
-                    st.page_link(PAGES[key], label=name, icon=GUIDE[name][0])
+                    st.page_link(PAGES[key], label=name)
                 st.markdown(f'<div class="x guide-d">{esc(GUIDE[name][1])}</div>', unsafe_allow_html=True)
 
 
@@ -489,7 +493,7 @@ def guide() -> None:
 
 def _num(v, kind: str = "price") -> str:
     if v is None:
-        return "—"
+        return "n/a"
     cls = "up" if v > 0 else "down" if v < 0 else ""
     text = f"{v:+.2f} pts" if kind == "rate" else f"{v:+.1f}%"
     return f'<span class="{cls}">{text}</span>'
@@ -645,8 +649,8 @@ def game_card(g: sports.Game) -> str:
                 f'<span class="sc">{esc(side.score) if g.state != "pre" else ""}</span></div>')
     recap = ""
     if g.recap_title or g.recap:
-        text = g.recap.replace("...", "…")
-        recap = f'<div class="recap"><b>{esc(g.recap_title)}</b>{esc(text)} <span class="cred">— ESPN recap</span></div>'
+        text = nodash(g.recap.replace("...", "…"))
+        recap = f'<div class="recap"><b>{esc(nodash(g.recap_title))}</b>{esc(text)} <span class="cred">(ESPN recap)</span></div>'
     stars = ""
     if g.standouts and g.state != "pre":
         faces = g.faces + [""] * len(g.standouts)
@@ -689,10 +693,10 @@ def game_line(g: sports.Game) -> str:
     else:
         a, b = (g.home, g.away) if soccer else (g.away, g.home)
         name = lambda s: f"<b>{esc(s.name)}</b>" if s.winner else esc(s.name)
-        text = f'{name(a)} {esc(a.score)} – {esc(b.score)} {name(b)}'
+        text = f'{name(a)} {esc(a.score)}, {name(b)} {esc(b.score)}'
         sub = esc(_when(g))
         if g.recap_title:
-            sub += f'<br><span style="color:var(--soft)">{esc(g.recap_title)}</span>'
+            sub += f'<br><span style="color:var(--soft)">{esc(nodash(g.recap_title))}</span>'
         elif g.standouts:
             sub += " · " + esc(" · ".join(g.standouts[:2]))
     label = "preview" if g.state == "pre" else "box score"
@@ -715,7 +719,7 @@ def all_sports() -> None:
         live, done, upcoming = d["games"]
         news = [s for s in d["news"] if s.url not in seen][:3]
         seen.update(s.url for s in news)
-        counts = f"{len(done)} results · {len(upcoming)} coming up" if (done or upcoming) else ""
+        counts = (f"{len(done)} result{'s' * (len(done) != 1)} · {len(upcoming)} coming up") if (done or upcoming) else ""
         logo = f'<span class="lgo">{img(d.get("logo", ""))}</span>' if d.get("logo") else ""
         parts = [f'<div class="lh">{logo}<b>{esc(name)}</b><span>{esc(counts)}</span></div>']
         if live:
@@ -764,7 +768,7 @@ def sports_page() -> None:
     with b:
         if data["quotes"]:
             heading("What people said", "Word for word, with who said it")
-            st.markdown("".join(f'<div class="x quote">“{esc(q)}”<a href="{url(s.url)}" target="_blank"><b>{esc(who)}</b>, '
+            st.markdown("".join(f'<div class="x quote">“{esc(nodash(q))}”<a href="{url(s.url)}" target="_blank"><b>{esc(who)}</b>, '
                                 f'quoted by {esc(s.source)}: {esc(s.title)}</a></div>' for q, who, s in data["quotes"]),
                         unsafe_allow_html=True)
         for group, rows in data["tables"].items():
@@ -868,12 +872,11 @@ def password_ok() -> bool:
 def main() -> None:
     if not password_ok():
         return
-    PAGES["front"] = st.Page(front_page, title="Front page", url_path="front", default=True, icon="🗞️")
+    PAGES["front"] = st.Page(front_page, title="Front page", url_path="front", default=True)
     for name in NAV_SECTIONS:
-        PAGES[name] = st.Page(section_page(name), title=name, url_path=name.lower().replace(" & ", "-").replace(" ", "-"),
-                              icon=GUIDE.get(name, ("", ""))[0] or None)
-    PAGES["sports"] = st.Page(sports_page, title="Sports", url_path="sports", icon="🏅")
-    PAGES["markets"] = st.Page(markets_page, title="Markets", url_path="markets", icon="📈")
+        PAGES[name] = st.Page(section_page(name), title=name, url_path=name.lower().replace(" & ", "-").replace(" ", "-"))
+    PAGES["sports"] = st.Page(sports_page, title="Sports", url_path="sports")
+    PAGES["markets"] = st.Page(markets_page, title="Markets", url_path="markets")
     st.navigation(list(PAGES.values()), position="top").run()
 
 

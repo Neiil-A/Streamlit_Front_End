@@ -29,7 +29,7 @@ RUNNING_ORDER = {"NPR", "Al Jazeera", "DW", "PBS NewsHour", "The Guardian", "The
 
 def is_live(s: Story) -> bool:
     t = s.title.lower()
-    return "– live" in t or "- live" in t or "live updates" in t or "as it happened" in t
+    return "– live" in t or "- live" in t or ", live" in t or "live updates" in t or "as it happened" in t
 
 
 def importance(s: Story) -> float:
