@@ -41,7 +41,7 @@ NAME = "Stop Looking at my Computer News"
 AUTHOR = "Neiil Apshankar"
 LINKEDIN_URL = "https://www.linkedin.com/in/neiil-apshankar/"     # LINKEDIN_URL in the app's Secrets overrides it
 ET = ZoneInfo("America/New_York")
-NEWS_TTL, SPORTS_TTL = 45 * 60, 10 * 60
+NEWS_TTL, SPORTS_TTL = 20 * 60, 10 * 60
 SEALED_FILE = ROOT / "data" / "findings.json"                              # published each night, sealed
 LOCAL_FILES = (ROOT / "data" / "markets.json", ROOT / "data" / "backtests" / "markets.json")   # on the home machine
 NAV_SECTIONS = [s for s in SECTIONS if s not in ("Sports", "Social")]
@@ -174,6 +174,11 @@ table.t .fund { color: var(--muted); font-size: .72rem; margin-left: .3rem; }
 .bar { position: relative; height: 6px; background: #e3e8ef; border-radius: 99px; min-width: 90px; }
 .bar i { position:absolute; top:-3px; width: 12px; height: 12px; border-radius: 50%; background: var(--accent); transform: translateX(-50%); }
 .tiles { display:grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: .8rem; margin-bottom: .9rem; }
+.panel.live .top { background: linear-gradient(120deg, #064e3b, #0f766e); }
+.panel.live .top span::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #6ee7b7; margin-right: 6px; vertical-align: 1px; }
+.chg.up { color: var(--good); } .chg.down { color: var(--bad); }
+.movers { font-size: .85rem; color: var(--soft); margin: 0 0 .8rem; display: flex; flex-wrap: wrap; gap: .35rem; align-items: center; }
+.movers .pill { background: var(--chip); border-radius: 999px; padding: .15rem .55rem; font-weight: 700; color: var(--ink); }
 .tile { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: .8rem 1rem; }
 .panel .tile { background: #f7f9fc; }
 .tile .l { font-size: .68rem; color: var(--muted); font-weight: 700; text-transform: uppercase; letter-spacing: .08em; }
@@ -524,6 +529,52 @@ def market_tiles(m: dict, names: tuple[str, ...]) -> str:
     return '<div class="tiles">' + "".join(out) + "</div>"
 
 
+LIVE_TILES = (("SPY", "S&P 500"), ("QQQ", "Nasdaq-100"), ("IWM", "Smaller companies"), ("DIA", "Dow"))
+LIVE_LABEL = {"pre": "Before the open", "regular": "Live", "after": "After hours", "overnight": "Overnight"}
+
+
+@st.cache_data(ttl=60, show_spinner=False)
+def live() -> dict | None:
+    """Live market prices, refreshed every minute, from the Market Monitor's live feed (PRESS_LIVE_URL, set only
+    where the paper is hosted; anywhere else there's simply no live strip)."""
+    import os
+
+    import requests
+
+    link = os.environ.get("PRESS_LIVE_URL", "")
+    if not link.startswith("https://"):
+        return None
+    try:
+        data = requests.get(link, timeout=4).json()
+    except Exception:
+        return None
+    return data if data.get("rows") and data.get("fresh") else None
+
+
+def live_strip() -> None:
+    """The market this minute: the four big indexes and the biggest moves, with the time."""
+    data = live()
+    if not data:
+        return
+    rows = data["rows"]
+    try:
+        when = datetime.fromisoformat(data["made_at"]).astimezone(ET).strftime("%I:%M %p").lstrip("0") + " ET"
+    except (KeyError, ValueError):
+        when = ""
+    def pct(v) -> str:
+        cls = "up" if v > 0 else "down" if v < 0 else ""
+        return f'<span class="chg {cls}">{v:+.1f}%</span>'
+    tiles = "".join(tile(label, pct(rows[sym]["day_pct"]), f'{rows[sym]["price"]:,.2f}') for sym, label in LIVE_TILES if sym in rows)
+    movers = sorted(((sym, r) for sym, r in rows.items() if len(sym) <= 5 and sym not in dict(LIVE_TILES)
+                     and r.get("day_pct") is not None), key=lambda x: -abs(x[1]["day_pct"]))[:6]
+    chips = "".join(f'<span class="pill">{esc(sym)} {pct(r["day_pct"])}</span>' for sym, r in movers if abs(r["day_pct"]) >= 2)
+    st.markdown(f'<div class="x panel live"><div class="top"><b>Markets right now</b><span>'
+                f'{esc(LIVE_LABEL.get(data.get("session", ""), "Live"))} · {esc(when)}</span></div><div class="body">'
+                f'<div class="tiles">{tiles}</div>' + (f'<div class="x movers">Biggest moves: {chips}</div>' if chips else "")
+                + f'</div></div><div class="x credit">{esc(credit("Market Monitor"))} Refreshes every minute.</div>',
+                unsafe_allow_html=True)
+
+
 def findings_panel(m: dict, heading_text: str, tiles: tuple[str, ...], lines: list[str], tools: tuple[str, ...]) -> None:
     st.markdown(f'<div class="x panel"><div class="top"><b>{esc(heading_text)}</b><span>Data as of {esc(m.get("as_of", ""))}'
                 f'</span></div><div class="body">{market_tiles(m, tiles) if tiles else ""}'
@@ -565,6 +616,7 @@ def front_page() -> None:
     e = edition()
     brand(f"Updated {e.made_at.astimezone(ET).strftime('%I:%M %p').lstrip('0')} ET")
     title("Today's edition", GUIDE["Front page"][1])
+    live_strip()
     m = markets()
     if m:
         findings_panel(m, "The economy today, in plain words", ("chain", "S&P 500", "Fear gauge (VIX)", "10-year Treasury yield"),
@@ -783,6 +835,7 @@ def sports_page() -> None:
 def markets_page() -> None:
     brand("Markets")
     title("Markets", GUIDE["Markets"][1] + ". Public market data only: nothing about any account or trade.")
+    live_strip()
     m = markets()
     if not m:
         no_findings()
