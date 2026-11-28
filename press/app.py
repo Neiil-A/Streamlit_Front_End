@@ -877,18 +877,57 @@ def markets_page() -> None:
 
 # ---- the entry screen ---------------------------------------------------------------------
 
-def password_ok() -> bool:
-    """A simple lock with no settings file needed: the built-in password (press/lock.py, kept only as a one-way
-    hash), or APP_PASSWORD from the app's Secrets when one is set."""
+REMEMBER = "slamc_pass"            # the cookie that keeps this device signed in
+REMEMBER_DAYS = 365                 # Safari caps cookies set by a page at 7 days, so each visit sets it again
+
+
+def right_password(given: str) -> bool:
+    """The built-in password (press/lock.py, kept only as a one-way hash), or APP_PASSWORD from the app's Secrets."""
     import hmac
     import os
 
-    if st.session_state.get("unlocked"):
-        return True
     try:
         expected = str(st.secrets.get("APP_PASSWORD", "")) or os.environ.get("APP_PASSWORD", "")
     except Exception:
         expected = os.environ.get("APP_PASSWORD", "")
+    if not isinstance(given, str) or not given:
+        return False
+    return hmac.compare_digest(given.encode(), expected.encode()) if expected else matches(given)
+
+
+def remembered() -> str:
+    """The password this device saved after its first sign-in, if any."""
+    try:
+        from urllib.parse import unquote
+
+        value = st.context.cookies.get(REMEMBER)
+        return unquote(value) if isinstance(value, str) else ""
+    except Exception:
+        return ""
+
+
+def remember_device() -> None:
+    """Keep this device signed in: the password goes in a cookie on this device only (the market findings need it
+    to open), renewed on every visit. Set once per visit, by a tiny invisible frame."""
+    if st.session_state.get("_remembered"):
+        return
+    import streamlit.components.v1 as components
+
+    value = json.dumps(st.session_state.get("pw", ""))
+    components.html(f"<script>document.cookie = '{REMEMBER}=' + encodeURIComponent({value}) + "
+                    f"'; max-age={REMEMBER_DAYS * 86400}; path=/; SameSite=Lax; Secure';</script>", height=0)
+    st.session_state["_remembered"] = True
+
+
+def password_ok() -> bool:
+    """A simple lock with no settings file needed. The password is asked once per device: after the first right
+    entry the device stays signed in (remember_device), until its cookies are cleared or the password changes."""
+    if st.session_state.get("unlocked"):
+        return True
+    saved = remembered()
+    if saved and right_password(saved):
+        st.session_state["unlocked"], st.session_state["pw"] = True, saved
+        return True
     now = datetime.now(ET)
     brand("Private edition")
     left, right = st.columns([1.45, 1], gap="large", vertical_alignment="center")
@@ -906,14 +945,13 @@ def password_ok() -> bool:
     with right:
         with st.form("unlock", clear_on_submit=True, border=False):
             st.markdown('<div class="x signin"><div class="eyebrow">Sign in</div><div class="t">Open today\'s edition</div>'
-                        '<div class="s">Enter the password. It stays open until you close the tab.</div></div>',
+                        '<div class="s">Enter the password once. This device stays signed in after that.</div></div>',
                         unsafe_allow_html=True)
             given = st.text_input("Password", type="password", label_visibility="collapsed", placeholder="Password")
             if st.form_submit_button("Open today's edition", width="stretch", type="primary"):
-                right_one = hmac.compare_digest(given.encode(), expected.encode()) if expected else matches(given)
-                if right_one:
+                if right_password(given):
                     st.session_state["unlocked"] = True
-                    st.session_state["pw"] = given          # opens the sealed findings; kept only for this visit
+                    st.session_state["pw"] = given          # opens the sealed findings; this device remembers it
                     st.rerun()
                 st.error("That's not it.")
             st.markdown('<div class="x signin"><div class="fine">Free sources only, so every link opens without a '
@@ -925,6 +963,7 @@ def password_ok() -> bool:
 def main() -> None:
     if not password_ok():
         return
+    remember_device()
     PAGES["front"] = st.Page(front_page, title="Front page", url_path="front", default=True)
     for name in NAV_SECTIONS:
         PAGES[name] = st.Page(section_page(name), title=name, url_path=name.lower().replace(" & ", "-").replace(" ", "-"))
