@@ -3,8 +3,8 @@
 
 Pages along the top: the front page (a guide to every page, the economy in brief and what's coming up), one
 page per section (each opening with a five-point briefing), Sports (every league at a glance, then recaps,
-results, top performers, quotes, a week of fixtures and tables) and Markets (the economy's vital signs from
-Neiil's own tools). Stories show how many outlets report them, with a link to each; where the publisher
+results, top performers, quotes, a week of fixtures and full tables; scores update on their own while games are
+on) and Markets (the economy's vital signs from Neiil's own tools). Stories show how many outlets report them, with a link to each; where the publisher
 allows it, the full article opens right here. Grim news (violence, crime, arrests, immigration raids) is
 left out on purpose.
 
@@ -41,7 +41,7 @@ NAME = "Stop Looking at my Computer News"
 AUTHOR = "Neiil Apshankar"
 LINKEDIN_URL = "https://www.linkedin.com/in/neiil-apshankar/"     # LINKEDIN_URL in the app's Secrets overrides it
 ET = ZoneInfo("America/New_York")
-NEWS_TTL, SPORTS_TTL = 20 * 60, 10 * 60
+NEWS_TTL, SPORTS_TTL = 20 * 60, 10 * 60        # SPORTS_TTL: league news, quotes, tables (scores: sports.Scores)
 SEALED_FILE = ROOT / "data" / "findings.json"                              # published each night, sealed
 LOCAL_FILES = (ROOT / "data" / "markets.json", ROOT / "data" / "backtests" / "markets.json")   # on the home machine
 NAV_SECTIONS = [s for s in SECTIONS if s not in ("Sports", "Social")]
@@ -235,6 +235,14 @@ a.li svg { width: 15px; height: 15px; fill: #fff; }
 .gc .top { display:flex; justify-content: space-between; gap: .6rem; flex-wrap: wrap; font-size: .7rem; font-weight: 700; color: var(--accent);
   text-transform: uppercase; letter-spacing: .06em; margin-bottom: .45rem; }
 .gc.live .top .when { color: var(--bad); } .gc .top .venue { color: var(--muted); font-weight: 600; text-transform: none; letter-spacing: 0; }
+.badge { display:inline-block; border-radius: 4px; padding: .08rem .42rem; margin-right: .45rem; font-size: .64rem; font-weight: 800;
+  letter-spacing: .08em; text-transform: uppercase; color: #fff; background: var(--navy); vertical-align: 1px; }
+.badge.live { background: var(--bad); } .badge.off { background: var(--muted); }
+.badge.live::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #fff; margin-right: 5px;
+  vertical-align: 1px; animation: pulse 1.6s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .25; } }
+.lg .g small .badge { font-size: .6rem; padding: .02rem .35rem; }
+.pace { font-size: .76rem; color: var(--muted); margin: 0 0 .7rem; } .pace.on { color: var(--bad); font-weight: 600; }
 .gc .row { display:grid; grid-template-columns: 26px 1fr auto auto; align-items:center; gap: .55rem; padding: .16rem 0; font-size: .95rem; }
 .gc .row img, .lg img.tl { width: 24px; height: 24px; object-fit: contain; }
 .gc .row.win { font-weight: 800; } .gc .rec { color: var(--muted); font-size: .74rem; font-weight: 500; margin-left: .35rem; }
@@ -269,13 +277,48 @@ def edition() -> Edition:
     return build()
 
 
-def _league_data(name: str, tables: bool = True, n: int = 10, ahead: int | None = None) -> dict:
-    out = {"games": ([], [], []), "tables": {}, "news": [], "quotes": [], "logo": ""}
-    try:
-        out["games"] = sports.split(sports.scoreboard(name), n=n, ahead=ahead)
-    except Exception:
-        pass
-    out["logo"] = sports.LOGOS.get(name, "")
+@st.cache_resource(show_spinner=False)
+def scores() -> sports.Scores:
+    """One copy of every league's scores for everyone reading, kept by sports.fresh_until's rules (a game in
+    progress is read again every 25 seconds), never by the slow news cache."""
+    return sports.Scores()
+
+
+def boards(names) -> dict[str, sports.Board]:
+    names, keep = list(names), scores()
+    with ThreadPoolExecutor(len(names)) as pool:
+        return dict(zip(names, pool.map(keep.get, names)))
+
+
+def pace(bs: dict[str, sports.Board]) -> int:
+    """Seconds between the scoreboard's own refreshes: 30 while any game is on or about to start, else 5 minutes."""
+    now = datetime.now(timezone.utc)
+    return min(sports.refresh_every(b.games, now) for b in bs.values())
+
+
+def keep_pace(bs: dict[str, sports.Board], every: int) -> None:
+    """A scoreboard's refresh interval is set when the page runs, so when the first game starts or the last one
+    ends, run the page again to switch between the live and the calm pace."""
+    if pace(bs) != every:
+        st.rerun(scope="app")
+
+
+def pace_note(bs: dict[str, sports.Board], every: int) -> str:
+    live = [b for b in bs.values() if any(g.state == "in" for g in b.games)]
+    times = [b.fetched for b in (live or bs.values()) if b.fetched]
+    when = (f"{min(times).astimezone(ET):%I:%M:%S %p}".lstrip("0") + " ET") if times else "not yet"
+    if live:
+        text = f"Live scores from ESPN, updated {when}. They update on their own every {every} seconds."
+    elif every == sports.PAGE_LIVE:
+        text = f"Scores from ESPN, updated {when}. A game is about to start: scores update on their own every {every} seconds."
+    else:
+        text = f"Scores from ESPN, updated {when}. They go live on their own when a game starts."
+    return f'<div class="x pace{" on" if live else ""}">{esc(text)}</div>'
+
+
+def _league_data(name: str, tables: bool = True) -> dict:
+    """The slow parts of a league: news, quotes and tables (the scores are kept apart, see scores())."""
+    out = {"tables": {}, "news": [], "quotes": []}
     if tables:
         try:
             out["tables"] = sports.standings(name)
@@ -289,15 +332,15 @@ def _league_data(name: str, tables: bool = True, n: int = 10, ahead: int | None 
     return out
 
 
-@st.cache_data(ttl=SPORTS_TTL, show_spinner="Getting scores…")
+@st.cache_data(ttl=SPORTS_TTL, show_spinner="Getting the league's news…")
 def league(name: str) -> dict:
-    return _league_data(name, n=12, ahead=45)      # a week of fixtures
+    return _league_data(name)
 
 
-@st.cache_data(ttl=SPORTS_TTL, show_spinner="Getting every league's scores…")
+@st.cache_data(ttl=SPORTS_TTL, show_spinner="Getting every league's news…")
 def overview() -> dict:
     with ThreadPoolExecutor(len(sports.LEAGUES)) as pool:
-        return dict(zip(sports.LEAGUES, pool.map(lambda name: _league_data(name, tables=False, n=4), sports.LEAGUES)))
+        return dict(zip(sports.LEAGUES, pool.map(lambda name: _league_data(name, tables=False), sports.LEAGUES)))
 
 
 def markets() -> dict | None:
@@ -677,13 +720,30 @@ def section_page(name: str):
 
 # ---- sports ---------------------------------------------------------------------------------
 
-def _when(g: sports.Game) -> str:
+def game_state(g: sports.Game) -> tuple[str, str]:
+    """(badge, words): ('LIVE', '4th quarter · 8:20'), ('FINAL', 'Overtime · Sat, Nov 21'), ('POSTPONED', 'Sun, Nov 29'),
+    or for a game still to come no badge and its start time ('Mon, Nov 23 · 11:30 AM ET')."""
     start = g.start.astimezone(ET) if g.start else None
-    if g.state == "pre":
-        return f"{start:%a, %b} {start.day} · {start:%I:%M %p}".replace(" 0", " ") + " ET" if start else g.status
+    day = f"{start:%a, %b} {start.day}" if start else ""
     if g.state == "in":
-        return f"● Live · {g.status}"
-    return f"{g.status} · {start:%a, %b} {start.day}" if start else g.status
+        return "LIVE", sports.live_detail(g)
+    if g.state == "post":
+        if g.status_name in sports.CALLED_OFF:
+            return sports.CALLED_OFF[g.status_name], day
+        how = sports.final_detail(g)
+        return "FINAL", " · ".join(x for x in (how[:1].upper() + how[1:], day) if x)
+    if not start:
+        return "", g.status
+    if g.tbd:
+        return "", f"{day} · time to be set"
+    return "", f"{day} · {start:%I:%M %p}".replace(" 0", " ") + " ET"
+
+
+def _when(g: sports.Game) -> str:
+    """The game's state as a badge (LIVE, FINAL, POSTPONED) and words, as HTML."""
+    badge, words = game_state(g)
+    cls = {"LIVE": " live", "FINAL": ""}.get(badge, " off")
+    return (f'<span class="badge{cls}">{esc(badge)}</span>' if badge else "") + esc(words)
 
 
 def _soccer(g: sports.Game) -> bool:
@@ -713,7 +773,7 @@ def game_card(g: sports.Game) -> str:
     venue = f'<span class="venue">{esc(g.venue)}</span>' if g.venue else ""
     event = f'<span class="venue">{esc(g.event)}</span>' if g.event else ""
     cls = {"in": " live", "pre": " pre"}.get(g.state, "")
-    return (f'<div class="x gc{cls}"><div class="top"><span class="when">{esc(_when(g))}</span>{venue}{event}</div>'
+    return (f'<div class="x gc{cls}"><div class="top"><span class="when">{_when(g)}</span>{venue}{event}</div>'
             f'{row(a, pa)}{row(b, pb)}{recap}{stars}{link}</div>')
 
 
@@ -736,17 +796,17 @@ def game_line(g: sports.Game) -> str:
     if g.state == "pre":
         a, b = (g.home, g.away) if soccer else (g.away, g.home)
         text = f'{esc(a.name)} {"v" if soccer else "at"} {esc(b.name)}'
-        sub = esc(_when(g) + (" · " + g.event if g.event else ""))
+        sub = _when(g) + esc(" · " + g.event if g.event else "")
     elif g.event:      # tennis: winner first, sets as 6-4 7-5
         w, l = (g.away, g.home) if g.away.winner else (g.home, g.away)
         sets = " ".join(f"{x}-{y}" for x, y in zip(w.score.split(), l.score.split()))
         text = f'<b>{esc(w.name)}</b> {"beat" if g.state == "post" else "vs"} {esc(l.name)} {esc(sets)}'
-        sub = esc(("Live · " if g.state == "in" else "") + g.event)
+        sub = _when(g) + " · " + esc(g.event)
     else:
         a, b = (g.home, g.away) if soccer else (g.away, g.home)
         name = lambda s: f"<b>{esc(s.name)}</b>" if s.winner else esc(s.name)
         text = f'{name(a)} {esc(a.score)}, {name(b)} {esc(b.score)}'
-        sub = esc(_when(g))
+        sub = _when(g)
         if g.recap_title:
             sub += f'<br><span style="color:var(--soft)">{esc(nodash(g.recap_title))}</span>'
         elif g.standouts:
@@ -765,17 +825,23 @@ def table_html(rows: list[dict]) -> str:
     return f'<div class="tw"><table class="x t"><tr>{head}</tr>{body}</table></div>'
 
 
-def all_sports() -> None:
+def _all_scores(every: int) -> None:
+    """Every league's panel: live games, results, what's next and the latest news. Runs again on its own (st.fragment)."""
+    bs = boards(sports.LEAGUES)
+    keep_pace(bs, every)
     data, seen, panels = overview(), set(), []
+    st.markdown(pace_note(bs, every), unsafe_allow_html=True)
     for name, d in data.items():
-        live, done, upcoming = d["games"]
+        live, done, upcoming = sports.split(bs[name].games, n=4)
         news = [s for s in d["news"] if s.url not in seen][:3]
         seen.update(s.url for s in news)
-        counts = (f"{len(done)} result{'s' * (len(done) != 1)} · {len(upcoming)} coming up") if (done or upcoming) else ""
-        logo = f'<span class="lgo">{img(d.get("logo", ""))}</span>' if d.get("logo") else ""
+        counts = " · ".join(x for x in (f"{len(live)} live" if live else "",
+                                        f"{len(done)} result{'s' * (len(done) != 1)} · {len(upcoming)} coming up"
+                                        if (done or upcoming) else "") if x)
+        logo = f'<span class="lgo">{img(sports.LOGOS.get(name, ""))}</span>' if sports.LOGOS.get(name) else ""
         parts = [f'<div class="lh">{logo}<b>{esc(name)}</b><span>{esc(counts)}</span></div>']
         if live:
-            parts += ['<div class="k">Live now</div>'] + [game_line(g) for g in live[:3]]
+            parts += ['<div class="k">Live now</div>'] + [game_line(g) for g in live[:6]]
         if done:
             parts += ['<div class="k">Latest results</div>'] + [game_line(g) for g in done[:3]]
         if upcoming:
@@ -793,6 +859,41 @@ def all_sports() -> None:
             st.markdown(p, unsafe_allow_html=True)
 
 
+def refreshing(func, every: int, *args) -> None:
+    """Draw func(*args, every) as a part of the page that runs again on its own every `every` seconds."""
+    st.fragment(run_every=every)(func)(*args, every)
+
+
+def all_sports() -> None:
+    refreshing(_all_scores, pace(boards(sports.LEAGUES)))
+
+
+def _league_banner(name: str, every: int) -> None:
+    bs = boards([name])
+    keep_pace(bs, every)
+    live_now, done, upcoming = sports.split(bs[name].games, n=12, ahead=45)
+    logo = f'<span class="lgo">{img(sports.LOGOS.get(name, ""))}</span>' if sports.LOGOS.get(name) else ""
+    st.markdown(f'<div class="x banner">{logo}<div><b>{esc(name)}</b><span>{len(live_now)} live · {len(done)} recent results · '
+                f'{len(upcoming)} games in the week ahead</span></div></div>', unsafe_allow_html=True)
+
+
+def _league_scores(name: str, every: int) -> None:
+    """Live now, results and the week ahead for one league. Runs again on its own (st.fragment)."""
+    bs = boards([name])
+    keep_pace(bs, every)
+    live_now, done, upcoming = sports.split(bs[name].games, n=12, ahead=45)      # a week of fixtures
+    note = pace_note(bs, every)            # under the first heading, so both columns start level
+    if live_now:
+        heading("Live now")
+        st.markdown(note + "".join(game_card(g) for g in live_now), unsafe_allow_html=True)
+        note = ""
+    heading("Results", "Newest first, with ESPN's recap and the top performers")
+    st.markdown(note + ("".join(game_card(g) for g in done) or '<div class="x box">No recent results.</div>'),
+                unsafe_allow_html=True)
+    heading("Coming up", "The week ahead, by day (Eastern time)")
+    st.markdown(by_day(upcoming) or '<div class="x box">Nothing scheduled in the week ahead.</div>', unsafe_allow_html=True)
+
+
 def sports_page() -> None:
     brand("Sports")
     title("Sports", GUIDE["Sports"][1] + ". Pick a league below, or see them all at once.")
@@ -802,21 +903,13 @@ def sports_page() -> None:
         all_sports()
         footer()
         return
+    every = pace(boards([choice]))
+    refreshing(_league_banner, every, choice)
     data = league(choice)
-    live, done, upcoming = data["games"]
-    logo = f'<span class="lgo">{img(data.get("logo", ""))}</span>' if data.get("logo") else ""
-    st.markdown(f'<div class="x banner">{logo}<div><b>{esc(choice)}</b><span>{len(live)} live · {len(done)} recent results · '
-                f'{len(upcoming)} games in the week ahead</span></div></div>', unsafe_allow_html=True)
     briefing(f"{choice}: the latest", data["news"][:BRIEF])
     a, b = st.columns([1.35, 1], gap="large")
     with a:
-        if live:
-            heading("Live now")
-            st.markdown("".join(game_card(g) for g in live), unsafe_allow_html=True)
-        heading("Results", "Newest first, with ESPN's recap and the top performers")
-        st.markdown("".join(game_card(g) for g in done) or '<div class="x box">No recent results.</div>', unsafe_allow_html=True)
-        heading("Coming up", "The week ahead, by day (Eastern time)")
-        st.markdown(by_day(upcoming) or '<div class="x box">Nothing scheduled in the week ahead.</div>', unsafe_allow_html=True)
+        refreshing(_league_scores, every, choice)
     with b:
         if data["quotes"]:
             heading("What people said", "Word for word, with who said it")
